@@ -1,0 +1,22 @@
+# Vector Search Dependencies for Phase 13
+# Install with: pip install -r requirements-vector.txt
+
+# Core vector database
+chromadb>=0.4.22
+
+# Embedding generation
+sentence-transformers>=2.2.2
+
+# Required by sentence-transformers (usually auto-installed)
+torch>=2.0.0
+transformers>=4.30.0
+tokenizers>=0.13.0
+
+# Numeric operations
+numpy>=1.24.0
+
+# Optional: Faster similarity search
+faiss-cpu>=1.7.4
+
+# Progress bars for batch operations
+tqdm>=4.65.0

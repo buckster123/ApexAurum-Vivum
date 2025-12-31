@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+*.pyo
+
+# Virtual Environment
+venv/
+.venv/
+env/
+ENV/
+
+# Streamlit
+.streamlit/
+
+# Environment Variables and Secrets
+.env
+*.key
+*.pem
+
+# Runtime Data (you can uncommment these if you want to track them)
+sandbox/conversations.json
+sandbox/agents.json
+sandbox/memory.json
+sandbox/*.py
+
+# Logs
+*.log
+app.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+temp/
+tmp/
+
+# ChromaDB
+chroma_db/
+*.chroma
+
+# Model caches
+.cache/

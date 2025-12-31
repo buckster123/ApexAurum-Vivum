@@ -1,0 +1,93 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv
+
+# Environment Variables
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Streamlit
+.streamlit/
+
+# Logs
+*.log
+app.log
+
+# Database & Storage
+sandbox/db/chatapp.db
+sandbox/db/chatapp.db-shm
+sandbox/db/chatapp.db-wal
+sandbox/db/chroma_db/
+*.sqlite3
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Profiling
+*.prof
+*.stats
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# User-generated content
+sandbox/**/*.py
+sandbox/**/*.txt
+sandbox/**/*.json
+!sandbox/.gitkeep
+
+# Keep structure folders
+!sandbox/db/.gitkeep
+!sandbox/config/.gitkeep
+!sandbox/agents/.gitkeep
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
