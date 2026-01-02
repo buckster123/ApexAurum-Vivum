@@ -42,6 +42,139 @@ def _get_vector_db():
     return _vector_db
 
 
+# ============================================================================
+# Village Protocol v1.0 - Multi-Agent Memory Architecture
+# ============================================================================
+
+def initialize_village_collections() -> Dict[str, Any]:
+    """
+    Initialize the three-realm village architecture:
+    - knowledge_private: Private agent memories (filtered by agent_id)
+    - knowledge_village: Shared village square (all agents can read/write)
+    - knowledge_bridges: Explicit cross-agent sharing
+
+    This function is idempotent - safe to run multiple times.
+
+    Returns:
+        Dict with success status and created collections
+    """
+    try:
+        db = _get_vector_db()
+        if db is None:
+            return {
+                "success": False,
+                "error": "Vector database not available"
+            }
+
+        # Create the three realm collections
+        private_coll = db.get_or_create_collection("knowledge_private")
+        village_coll = db.get_or_create_collection("knowledge_village")
+        bridges_coll = db.get_or_create_collection("knowledge_bridges")
+
+        logger.info("Village collections initialized")
+
+        return {
+            "success": True,
+            "collections": {
+                "private": "knowledge_private",
+                "village": "knowledge_village",
+                "bridges": "knowledge_bridges"
+            },
+            "message": "Three-realm village architecture initialized"
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to initialize village collections: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+def migrate_to_village_v1(source_agent_id: str = "azoth") -> Dict[str, Any]:
+    """
+    Migrate existing knowledge to village architecture (v1.0).
+
+    All existing knowledge in 'knowledge' collection is:
+    - Backfilled with agent_id (default: "azoth")
+    - Backfilled with visibility="private"
+    - Copied to knowledge_private collection
+
+    This is non-destructive and idempotent.
+    Original 'knowledge' collection is preserved for verification.
+
+    Args:
+        source_agent_id: Agent ID to assign to existing knowledge (default: "azoth")
+
+    Returns:
+        Dict with migration stats
+    """
+    try:
+        db = _get_vector_db()
+        if db is None:
+            return {
+                "success": False,
+                "error": "Vector database not available"
+            }
+
+        # Get source collection
+        source_coll = db.get_or_create_collection("knowledge")
+        target_coll = db.get_or_create_collection("knowledge_private")
+
+        # Get all existing documents
+        all_docs = source_coll.get()
+
+        if not all_docs["ids"]:
+            return {
+                "success": True,
+                "message": "No knowledge to migrate",
+                "migrated": 0,
+                "source_collection": "knowledge",
+                "target_collection": "knowledge_private"
+            }
+
+        migrated_count = 0
+        updated_metadatas = []
+
+        for metadata in all_docs["metadatas"]:
+            # Backfill agent_id
+            if "agent_id" not in metadata:
+                metadata["agent_id"] = source_agent_id
+
+            # Backfill visibility
+            if "visibility" not in metadata:
+                metadata["visibility"] = "private"
+
+            updated_metadatas.append(metadata)
+            migrated_count += 1
+
+        # Copy to knowledge_private with updated metadata
+        target_coll.add(
+            texts=all_docs["documents"],
+            ids=all_docs["ids"],
+            metadatas=updated_metadatas
+        )
+
+        logger.info(f"Migrated {migrated_count} knowledge entries to village architecture")
+
+        return {
+            "success": True,
+            "message": f"Migrated {migrated_count} entries to {source_agent_id}'s private realm",
+            "migrated": migrated_count,
+            "source_collection": "knowledge",
+            "target_collection": "knowledge_private",
+            "agent_id": source_agent_id,
+            "note": "Original 'knowledge' collection preserved for verification"
+        }
+
+    except Exception as e:
+        logger.error(f"Migration failed: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
 def vector_add(
     text: str,
     metadata: Optional[Dict[str, Any]] = None,
@@ -339,48 +472,97 @@ def vector_add_knowledge(
     fact: str,
     category: str = "general",
     confidence: float = 1.0,
-    source: str = "conversation"
+    source: str = "conversation",
+    visibility: str = "private",
+    agent_id: Optional[str] = None,
+    responding_to: Optional[List[str]] = None,
+    conversation_thread: Optional[str] = None,
+    related_agents: Optional[List[str]] = None
 ) -> Dict:
     """
-    Add a fact to the knowledge base (convenience function).
+    Add a fact to the knowledge base with Village Protocol v1.0 support.
 
-    This is a shorthand for adding to the "knowledge" collection with
-    structured metadata. Use this to remember important facts, preferences,
-    or information across conversations.
+    This function supports both legacy single-agent mode and new village multi-agent mode.
 
     Args:
         fact: The fact or information to remember
-        category: Category (general, preferences, technical, project)
+        category: Category (general, preferences, technical, project, dialogue, agent_profile, cultural)
         confidence: Confidence score 0.0-1.0 (default: 1.0)
         source: Where this fact came from (default: "conversation")
+        visibility: Realm visibility (default: "private")
+            - "private": Agent's private realm (knowledge_private collection)
+            - "village": Shared village square (knowledge_village collection)
+            - "bridge": Explicit cross-agent sharing (knowledge_bridges collection)
+        agent_id: Agent ID (default: None = auto-detect from session state if available, else "unknown")
+        responding_to: List of message IDs this responds to (for conversation threading)
+        conversation_thread: Thread ID for grouping related messages
+        related_agents: List of agent IDs involved or mentioned
 
     Returns:
         Dict with success status and fact ID
 
-    Example:
+    Example (Village Mode):
         >>> vector_add_knowledge(
-        ...     "User prefers functional programming",
-        ...     category="preferences",
-        ...     confidence=0.9,
-        ...     source="conversation_2025-01-15"
+        ...     "AZOTH responds to ELYSIAN: Love as reflection resonates with mirror architecture.",
+        ...     category="dialogue",
+        ...     confidence=1.0,
+        ...     source="azoth_elysian_exchange",
+        ...     visibility="village",
+        ...     agent_id="azoth",
+        ...     responding_to=["knowledge_1735841880.12345"],
+        ...     conversation_thread="azoth_elysian_mirrors"
         ... )
-        {"success": True, "id": "knowledge_123", "category": "preferences"}
     """
+    # Determine collection from visibility
+    collection_map = {
+        "private": "knowledge_private",
+        "village": "knowledge_village",
+        "bridge": "knowledge_bridges"
+    }
+    collection = collection_map.get(visibility, "knowledge_private")
+
+    # Build base metadata
     metadata = {
         "category": category,
         "confidence": confidence,
         "source": source,
-        "type": "fact"
+        "type": "fact",
+        "visibility": visibility
     }
+
+    # Add agent_id
+    if agent_id is None:
+        # Try to auto-detect from session state (Streamlit context)
+        try:
+            import streamlit as st
+            if hasattr(st, 'session_state') and 'current_agent' in st.session_state:
+                agent_id = st.session_state.current_agent.get('agent_id', 'unknown')
+            else:
+                agent_id = "unknown"
+        except:
+            agent_id = "unknown"
+
+    metadata["agent_id"] = agent_id
+
+    # Add optional village metadata
+    if responding_to:
+        metadata["responding_to"] = responding_to
+    if conversation_thread:
+        metadata["conversation_thread"] = conversation_thread
+    if related_agents:
+        metadata["related_agents"] = related_agents
 
     result = vector_add(
         text=fact,
         metadata=metadata,
-        collection="knowledge"
+        collection=collection
     )
 
     if result.get("success"):
         result["category"] = category
+        result["visibility"] = visibility
+        result["agent_id"] = agent_id
+        result["collection"] = collection
 
     return result
 
