@@ -77,7 +77,7 @@ class ImportEngine:
             validate: Whether to validate after import
 
         Returns:
-            Conversation dict
+            Conversation dict (or dict with multiple conversations if file contains multiple)
 
         Raises:
             ValueError: If format unsupported or validation fails
@@ -92,6 +92,15 @@ class ImportEngine:
         # Import using appropriate importer
         importer = self.importers[format]
         conversation = importer.import_conversation(content)
+
+        # Check if this is a multi-conversation file
+        if isinstance(conversation, dict) and "conversations" in conversation:
+            # This is a multi-conversation export - return metadata about it
+            return {
+                "_multiple": True,
+                "conversations": conversation["conversations"],
+                "count": len(conversation["conversations"])
+            }
 
         # Normalize first (add missing fields, fix structure)
         conversation = self._normalize_conversation(conversation)
@@ -258,11 +267,11 @@ class JSONImporter(BaseImporter):
 
             # Handle both single conversation and wrapped format
             if "conversations" in data:
-                # Multiple conversations exported together
-                if len(data["conversations"]) > 0:
-                    return data["conversations"][0]
-                else:
+                # Multiple conversations exported together - return the full structure
+                if len(data["conversations"]) == 0:
                     raise ValueError("No conversations in file")
+                # Return the data as-is, let import_conversation() handle the multiple case
+                return data
 
             return data
 

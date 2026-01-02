@@ -3940,14 +3940,42 @@ Votes:
                         validate=validate
                     )
 
-                    # Save to app state
-                    st.session_state.app_state.save_conversation(
-                        imported_conv["messages"],
-                        imported_conv.get("metadata", {})
-                    )
+                    # Check if this is a multi-conversation file
+                    if imported_conv.get("_multiple"):
+                        # Multiple conversations in one file
+                        conversations = imported_conv["conversations"]
+                        imported_count = 0
+                        total_messages = 0
 
-                    st.success(f"✅ Imported conversation: {imported_conv.get('title', 'Untitled')}")
-                    st.info(f"📊 {len(imported_conv.get('messages', []))} messages imported")
+                        for conv in conversations:
+                            # Normalize and validate each conversation
+                            conv = engine._normalize_conversation(conv)
+                            if validate:
+                                is_valid, errors = engine.validate_conversation(conv)
+                                if not is_valid:
+                                    st.warning(f"⚠️ Skipped invalid conversation '{conv.get('title', 'Untitled')}': {', '.join(errors)}")
+                                    continue
+
+                            # Save to app state
+                            st.session_state.app_state.save_conversation(
+                                conv["messages"],
+                                conv.get("metadata", {})
+                            )
+                            imported_count += 1
+                            total_messages += len(conv.get("messages", []))
+
+                        st.success(f"✅ Imported {imported_count} conversation(s) from file")
+                        st.info(f"📊 Total: {total_messages} messages")
+
+                    else:
+                        # Single conversation
+                        st.session_state.app_state.save_conversation(
+                            imported_conv["messages"],
+                            imported_conv.get("metadata", {})
+                        )
+
+                        st.success(f"✅ Imported conversation: {imported_conv.get('title', 'Untitled')}")
+                        st.info(f"📊 {len(imported_conv.get('messages', []))} messages imported")
 
                     # Close dialog after successful import
                     if st.form_submit_button("Close", use_container_width=True):
