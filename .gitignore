@@ -56,3 +56,10 @@ chroma_db/
 
 # Model caches
 .cache/
+
+# Future additions / experimental
+future_additions/
+
+# Test config files
+apex_config*.json
+*config).json
