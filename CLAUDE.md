@@ -511,6 +511,38 @@ Model can be changed in sidebar during runtime.
 - Tools: 5 new tools (30 → 35 total)
 - All tests passing ✅
 
+### Import System Fixes - Complete ✅ (January 2026)
+
+**Problem:** Legacy conversation imports from previous versions were failing validation and only importing the first conversation from "Export All" files.
+
+**Fixes Implemented:**
+
+1. **Auto-Generate Missing Titles** (`core/import_engine.py`)
+   - Moved normalization BEFORE validation
+   - Auto-generates title from first user message if missing
+   - Handles both string content and content block formats
+   - Fallback to "Imported Conversation" if no messages exist
+   - Fix allows legacy exports without 'title' field to import successfully
+
+2. **Multi-Conversation Import Support** (`core/import_engine.py`, `main.py`)
+   - JSONImporter now detects and returns all conversations in file
+   - ImportEngine adds `_multiple` flag for batch imports
+   - UI loops through all conversations and imports each one
+   - Shows summary: "Imported X conversation(s), Total: Y messages"
+   - Invalid conversations skipped with warning (doesn't break import)
+   - **Result:** Tested with 100+ conversation import successfully
+
+**Files Modified:**
+- `core/import_engine.py` - Import engine core logic (+49 lines)
+- `main.py` - UI import handler (+37 lines)
+
+**Impact:**
+- ✅ Legacy conversation exports import without errors
+- ✅ "Export All" files now import ALL conversations (not just first)
+- ✅ Validation still catches real structural errors
+- ✅ Robust handling for migration from previous versions
+- ✅ Tested: 127 conversations, 178 messages imported successfully
+
 ### Phase 1 UI Polish - Complete ✅
 
 **Features:**

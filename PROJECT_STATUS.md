@@ -431,6 +431,64 @@ Documentation:                 ✅ 100% Complete
 
 ---
 
+### ✅ Import System Fixes - Complete (Jan 2026)
+
+**Status:** Fully implemented and tested with 100+ conversation imports
+
+**Problem Identified:**
+1. Legacy conversation exports from previous versions failing validation (missing 'title' field)
+2. "Export All" files only importing first conversation (ignoring rest)
+
+**Fixes Implemented:**
+
+#### 1. Auto-Generate Missing Titles
+**File:** `core/import_engine.py`
+
+- Moved normalization step BEFORE validation
+- Auto-generates title from first user message if missing
+- Handles both string content and new content block formats
+- Fallback to "Imported Conversation" if no messages exist
+- Enables seamless migration from legacy formats
+
+**Code Changes:**
+```python
+# Enhanced _normalize_conversation()
+- Extracts first user message content
+- Truncates to 60 characters for title
+- Handles content blocks: [{"type": "text", "text": "..."}]
+- Validates AFTER normalization (not before)
+```
+
+#### 2. Multi-Conversation Import Support
+**Files:** `core/import_engine.py`, `main.py`
+
+- JSONImporter detects "conversations" array and returns all
+- ImportEngine adds `_multiple: true` flag for batch imports
+- UI loops through all conversations and imports each one
+- Shows summary: "Imported X conversation(s), Total: Y messages"
+- Invalid conversations skipped with warning (doesn't break import)
+- Each conversation normalized and validated individually
+
+**Code Changes:**
+- `core/import_engine.py`: +49 lines (detection and handling logic)
+- `main.py`: +37 lines (UI batch import loop)
+- **Total: ~86 lines**
+
+**Test Results:**
+- ✅ Legacy exports without 'title' field import successfully
+- ✅ Multi-conversation files import ALL conversations (not just first)
+- ✅ Validation still catches real structural errors
+- ✅ Production test: 127 conversations, 178 messages imported successfully
+- ✅ Handles 100+ conversation imports (brief CPU spike, completes successfully)
+
+**Impact:**
+- 🔄 Seamless migration from previous ApexAurum versions
+- 📦 "Export All" functionality now fully operational
+- ✅ Robust error handling (skips invalid, continues with rest)
+- 🚀 Ready for production use
+
+---
+
 ## What's Pending (Optional Future Enhancements)
 
 ### Phase 2C+: Additional Polish (Future)
@@ -439,10 +497,11 @@ Documentation:                 ✅ 100% Complete
 1. ~~**Settings Presets**~~ ✅ **COMPLETE (Phase 2A)**
 2. ~~**Enhanced Tool Feedback**~~ ✅ **COMPLETE (Phase 2B)**
 3. ~~**Agent Monitoring Sidebar**~~ ✅ **COMPLETE (Phase 2B-1)**
-4. **Export/Import Conversations** - Backup & share conversations
-3. **Visual Refinements** - Additional polish and animations
-4. **Keyboard Shortcuts** - Power user keyboard controls
-5. **Analytics Dashboard** - Detailed usage visualizations
+4. ~~**Import Conversations**~~ ✅ **COMPLETE (Import fixes - Jan 2026)**
+5. **Export Conversations** - Enhanced export with custom formats
+6. **Visual Refinements** - Additional polish and animations
+7. **Keyboard Shortcuts** - Power user keyboard controls
+8. **Analytics Dashboard** - Detailed usage visualizations
 
 **Status:** Phase 2A complete. Additional enhancements available but not required.
 

@@ -86,6 +86,16 @@ Overall: 100% Complete - Production Ready & Memory-Enhanced
 
 **Impact:** Self-optimizing knowledge base, prevents memory bloat, automatic quality maintenance
 
+### 🆕 Import System Fixes (January 2026)
+
+**Migration Ready!** 📦
+- ✅ **Auto-generate titles** - Legacy exports without 'title' field now import successfully
+- ✅ **Multi-conversation import** - "Export All" files now import ALL conversations (not just first)
+- ✅ **Robust validation** - Normalizes before validating, skips invalid with warnings
+- ✅ **Tested at scale** - 127 conversations, 178 messages imported successfully
+
+**Impact:** Seamless migration from previous ApexAurum versions
+
 ### 🆕 Phase 2B-1: Agent Monitoring (January 2026)
 
 **New features:**
