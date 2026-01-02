@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ApexAurum - Claude Edition is a production-grade AI chat interface built on Anthropic's Claude API. It features multi-agent orchestration, vector search, intelligent prompt caching (50-90% cost savings), 30+ integrated tools, and context management with auto-summarization.
+ApexAurum - Claude Edition is a production-grade AI chat interface built on Anthropic's Claude API. It features multi-agent orchestration, adaptive memory architecture, vector search, intelligent prompt caching (50-90% cost savings), 35 integrated tools, and context management with auto-summarization.
 
-**Status:** V1.0 Beta - Production Ready with Phase 2B-1 Agent Monitoring (~17,077 lines of code)
+**Status:** V1.0 Beta - Production Ready with Memory Enhancement (Phases 1-3 Complete) - Testing Ready (~18,100+ lines of code)
 
 ## Essential Reading Before Starting
 
@@ -35,7 +35,7 @@ Access at: http://localhost:8501
 ### Testing
 
 ```bash
-# Verify tool count (should be 30)
+# Verify tool count (should be 35)
 python -c "from tools import ALL_TOOLS; print(f'{len(ALL_TOOLS)} tools loaded')"
 
 # Test agent functionality
@@ -45,6 +45,11 @@ python -c "from tools.agents import agent_spawn; print('Agent tools OK')"
 python dev_log_archive_and_testfiles/tests/test_basic.py
 python dev_log_archive_and_testfiles/tests/test_agents.py
 python dev_log_archive_and_testfiles/tests/test_vector_db.py
+
+# Test memory enhancement (Phases 1-3)
+./venv/bin/python dev_log_archive_and_testfiles/tests/test_memory_phase1.py
+./venv/bin/python dev_log_archive_and_testfiles/tests/test_memory_phase2.py
+./venv/bin/python dev_log_archive_and_testfiles/tests/test_memory_phase3.py
 ```
 
 ### Logs and Debugging
@@ -105,17 +110,18 @@ cat .env
 - Lines 3300-3900: Message and tool processing
 - Lines 3900-4577: 13+ modal dialogs (presets, agents, search, export, etc.)
 
-**core/ (25 modules)** - Core infrastructure
+**core/ (26 modules)** - Core infrastructure
 - `api_client.py` - Claude API wrapper with streaming and retry logic
 - `cache_manager.py` - Prompt caching (4 strategies: disabled/conservative/balanced/aggressive)
 - `preset_manager.py` - Settings presets (Phase 2A: 5 built-in + custom presets)
 - `cost_tracker.py` - Token counting and cost calculation
 - `context_manager.py` - Context optimization (5 strategies to prevent overflow)
-- `vector_db.py` - ChromaDB integration for semantic search
+- `vector_db.py` - ChromaDB integration for semantic search (enhanced with access tracking)
+- `memory_health.py` - **NEW: Adaptive memory architecture (Phases 1-3)**
 - `conversation_indexer.py` - Conversation search indexing
 - `tool_processor.py` - Tool registry and execution engine
 
-**tools/ (7 modules)** - 30 tool implementations
+**tools/ (7 modules)** - 35 tool implementations
 - `utilities.py` - Time, calculator, web fetch/search, string ops
 - `filesystem.py` - Sandboxed file operations (read/write/list/delete)
 - `memory.py` - Key-value memory storage across conversations
@@ -193,7 +199,7 @@ Agent state persists in `sandbox/agents.json`. Each agent has: id, type, task, s
 
 ### Vector Search & Knowledge Base
 
-Implemented in `core/vector_db.py` and `tools/vector_search.py`:
+Implemented in `core/vector_db.py`, `core/memory_health.py`, and `tools/vector_search.py`:
 
 **Vector Operations:**
 - `vector_add(collection, text, metadata)` - Add document
@@ -204,7 +210,20 @@ Implemented in `core/vector_db.py` and `tools/vector_search.py`:
 
 **Knowledge Base:**
 - `vector_add_knowledge(content, category, tags)` - Store fact
-- `vector_search_knowledge(query, category, limit)` - Retrieve facts
+- `vector_search_knowledge(query, category, limit, track_access)` - Retrieve facts with optional access tracking
+
+**Memory Health (Adaptive Architecture - Phases 1-3):**
+- `memory_health_stale(days_unused, collection, limit)` - Find unused memories
+- `memory_health_low_access(max_access_count, min_age_days, collection)` - Find rarely accessed memories
+- `memory_health_duplicates(similarity_threshold, collection, limit)` - Find similar/duplicate memories
+- `memory_consolidate(id1, id2, collection, keep)` - Merge duplicate memories
+- `memory_migration_run(collection)` - Migrate vectors to enhanced metadata schema
+
+**Enhanced Metadata (Phase 1):**
+- `access_count` - Number of times memory accessed
+- `last_accessed_ts` - Unix timestamp of last access
+- `related_memories` - JSON string of related memory IDs
+- `embedding_version` - Model version used for embedding
 
 Knowledge categories: preferences, technical, project, general
 
@@ -391,6 +410,107 @@ Model can be changed in sidebar during runtime.
 
 **Impact:** Real-time agent visibility, council results exportable, latest Claude models supported
 
+### Memory Enhancement (Phases 1-3): Adaptive Memory Architecture - Complete ✅ **TESTING READY**
+
+**Azoth's Vision Realized:** Complete adaptive memory system to counter long-context KV degradation through intelligent memory health monitoring, duplicate detection, and automatic consolidation.
+
+#### **Phase 1: Enhanced Metadata & Access Tracking**
+
+**New Files:**
+- `core/vector_db.py` - Enhanced with automatic metadata tracking (+50 lines)
+- `tools/vector_search.py` - Migration utility (+98 lines)
+- `tests/test_memory_phase1.py` - Comprehensive test suite (NEW, 306 lines)
+
+**Enhanced Metadata Fields:**
+- `access_count` (int) - Tracks usage frequency (default: 0)
+- `last_accessed_ts` (float) - Unix timestamp for staleness detection
+- `related_memories` (str) - JSON array for memory graph (Phase 3 ready)
+- `embedding_version` (str) - Track embedding model version
+
+**Key Discovery:** ChromaDB metadata only accepts str/int/float/bool, NOT lists. Solution: Store related_memories as JSON string.
+
+**Functions Added:**
+- `VectorCollection.track_access()` - Non-blocking access tracking
+- `migrate_existing_vectors_to_v2()` - Idempotent migration utility
+
+**Impact:** Foundation for memory health analytics, automatic usage tracking
+
+#### **Phase 2: Access Tracking Integration**
+
+**Modified:**
+- `tools/vector_search.py` - Automatic tracking in search (+15 lines)
+- `tests/test_memory_phase2.py` - Integration test suite (NEW, 283 lines)
+
+**Enhanced Functions:**
+- `vector_search_knowledge()` - Added `track_access` parameter (default: True)
+  * Non-blocking: tracking errors don't break searches
+  * Optional: can be disabled with `track_access=False`
+  * Automatic: builds analytics passively
+
+**Test Results:**
+- ✓ Automatic tracking increments counters (0→1→2)
+- ✓ Optional tracking works (no increment when disabled)
+- ✓ Non-blocking confirmed (no exceptions on errors)
+- ✓ Multiple results tracked correctly
+
+**Impact:** Memory analytics build automatically with every search, zero user effort
+
+#### **Phase 3: Memory Health API**
+
+**New Files:**
+- `core/memory_health.py` - Complete health monitoring system (NEW, 422 lines)
+- `tests/test_memory_phase3.py` - Comprehensive test suite (NEW, 362 lines)
+
+**New Tools (5 tools added, 30 → 35 total):**
+
+1. **`memory_health_stale(days_unused, collection, limit)`**
+   - Find memories not accessed in X days (default: 30)
+   - Returns: list with access stats, days_since_access, confidence
+   - Use case: Identify forgotten knowledge for review/cleanup
+
+2. **`memory_health_low_access(max_access_count, min_age_days, collection)`**
+   - Find rarely accessed memories (default: ≤2 accesses, age >7 days)
+   - Returns: memories with low usage that might be irrelevant
+   - Use case: Clean up unused knowledge
+
+3. **`memory_health_duplicates(similarity_threshold, collection, limit)`**
+   - Find similar/duplicate memories (default: 95% similarity)
+   - Uses search-based detection (not O(n²) brute force!)
+   - Returns: pairs with similarity scores
+   - Use case: Identify redundant knowledge for consolidation
+
+4. **`memory_consolidate(id1, id2, collection, keep)`**
+   - Merge duplicate memories preserving quality
+   - Strategies: "higher_confidence", "higher_access", "id1", "id2"
+   - Combines access_counts, merges related_memories
+   - Deletes discarded memory, preserves metadata
+   - Use case: Clean up duplicates, improve knowledge quality
+
+5. **`memory_migration_run(collection)`**
+   - Migrate existing vectors to enhanced schema
+   - Idempotent, safe to run multiple times
+   - Use case: One-time upgrade after memory enhancement
+
+**Test Results:**
+- ✓ Tool registration: 35 tools confirmed
+- ✓ Stale detection: 40-day-old memory found
+- ✓ Duplicate detection: 99.23% similarity detected!
+- ✓ Consolidation: merge + delete successful
+- ✓ All metadata preserved correctly
+
+**Impact:**
+- 🔍 Self-optimizing knowledge base
+- 📉 Prevents memory bloat
+- 🔗 Detects redundant knowledge automatically
+- ⚡ Consolidates duplicates on demand
+- 🧠 Maintains knowledge quality over time
+
+**Total Implementation:**
+- Files: 4 new/modified
+- Code: ~1,052 lines production + 951 lines tests
+- Tools: 5 new tools (30 → 35 total)
+- All tests passing ✅
+
 ### Phase 1 UI Polish - Complete ✅
 
 **Features:**
@@ -566,10 +686,17 @@ grep ANTHROPIC_API_KEY .env
 ---
 
 **Last Updated:** 2026-01-02
-**Version:** 1.0 Beta (Phase 2B-1 Agent Monitoring Complete)
-**Total Code:** ~17,077 lines across 42 Python files
+**Version:** 1.0 Beta (Memory Enhancement Phases 1-3 Complete) - **TESTING READY**
+**Total Code:** ~18,100+ lines across 43 Python files
+**Tools:** 35 integrated tools (5 memory health tools added)
 
 **Latest Changes:**
+- **Memory Enhancement (Phases 1-3):** Adaptive memory architecture complete! 🧠
+  * Phase 1: Enhanced metadata + access tracking
+  * Phase 2: Automatic tracking integration
+  * Phase 3: Memory health API (stale/duplicate detection + consolidation)
+  * Total: 1,052 lines production code + 951 lines tests
+  * All tests passing ✅
 - **Phase 2B-1:** Agent Monitoring Sidebar + Council Export + Model Updates (Haiku 4.5!)
 - **Phase 2B:** Enhanced Tool Feedback with animated spinners and category icons
 - **Phase 2A:** Full-featured Settings Presets system with 5 built-ins + custom support
