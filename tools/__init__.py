@@ -67,6 +67,7 @@ from .vector_search import (
     vector_add_knowledge,
     vector_search_knowledge,
     vector_search_village,
+    enrich_with_thread_context,
     memory_health_stale,
     memory_health_low_access,
     memory_health_duplicates,
@@ -170,6 +171,7 @@ __all__ = [
     "vector_add_knowledge",
     "vector_search_knowledge",
     "vector_search_village",
+    "enrich_with_thread_context",
     # Memory Health
     "memory_health_stale",
     "memory_health_low_access",

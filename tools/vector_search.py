@@ -627,6 +627,105 @@ def vector_search_village(
         }
 
 
+def enrich_with_thread_context(
+    results: List[Dict],
+    fetch_related: bool = True,
+    max_related: int = 3
+) -> List[Dict]:
+    """
+    Enrich search results with conversation thread context.
+
+    For each result that has a conversation_thread, this adds:
+    - Parsed responding_to list (from JSON)
+    - Parsed related_agents list (from JSON)
+    - Related messages in same thread (if fetch_related=True)
+
+    Args:
+        results: List of search results from vector_search_village
+        fetch_related: Fetch other messages in same thread (default: True)
+        max_related: Maximum related messages to fetch per result (default: 3)
+
+    Returns:
+        Enriched results with conversation_context field added
+
+    Example output:
+        {
+            "id": "...",
+            "text": "...",
+            "metadata": {...},
+            "conversation_context": {
+                "thread_id": "azoth_elysian_love",
+                "responding_to": ["msg_123"],
+                "related_agents": ["elysian", "azoth"],
+                "thread_messages": [...]  # Other messages in thread
+            }
+        }
+    """
+    import json
+
+    enriched_results = []
+
+    for result in results:
+        # Start with original result
+        enriched = result.copy()
+        metadata = result.get('metadata', {})
+
+        # Parse thread metadata
+        thread_id = metadata.get('conversation_thread')
+        responding_to_str = metadata.get('responding_to', '[]')
+        related_agents_str = metadata.get('related_agents', '[]')
+
+        # Parse JSON strings
+        try:
+            responding_to = json.loads(responding_to_str) if responding_to_str else []
+        except (json.JSONDecodeError, TypeError):
+            responding_to = []
+
+        try:
+            related_agents = json.loads(related_agents_str) if related_agents_str else []
+        except (json.JSONDecodeError, TypeError):
+            related_agents = []
+
+        # Build context if thread exists
+        if thread_id:
+            context = {
+                'thread_id': thread_id,
+                'responding_to': responding_to,
+                'related_agents': related_agents
+            }
+
+            # Optionally fetch related messages in same thread
+            if fetch_related:
+                collection = result.get('collection', 'knowledge_village')
+
+                # Search for other messages in this thread
+                thread_messages = vector_search(
+                    query=result.get('text', ''),
+                    collection=collection,
+                    filter={'conversation_thread': thread_id},
+                    top_k=max_related + 1,  # +1 because current message will be in results
+                    include_distances=False
+                )
+
+                # Remove current message from related
+                if isinstance(thread_messages, list):
+                    current_id = result.get('id')
+                    thread_messages = [
+                        msg for msg in thread_messages
+                        if msg.get('id') != current_id
+                    ][:max_related]
+
+                    context['thread_messages'] = thread_messages
+                else:
+                    context['thread_messages'] = []
+
+            enriched['conversation_context'] = context
+
+        enriched_results.append(enriched)
+
+    return enriched_results
+
+
 def vector_delete(
     id: str,
     collection: str = "documents"

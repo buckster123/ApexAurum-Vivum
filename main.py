@@ -1418,6 +1418,77 @@ Use `vector_add_knowledge(visibility='village')` to share knowledge with other a
 Use `vector_search_village()` to discover what others have shared.
 """)
 
+        # ========== VILLAGE PROTOCOL: Thread Browser ==========
+        with st.expander("🧵 Conversation Threads", expanded=False):
+            try:
+                from core.vector_db import create_vector_db
+                import json
+
+                db = create_vector_db()
+                village_coll = db.get_or_create_collection("knowledge_village")
+
+                # Get all village messages
+                all_docs = village_coll.get()
+
+                if all_docs and all_docs.get("ids"):
+                    # Extract threads
+                    threads = {}
+
+                    for i, metadata in enumerate(all_docs["metadatas"]):
+                        thread_id = metadata.get("conversation_thread")
+
+                        if thread_id:
+                            if thread_id not in threads:
+                                threads[thread_id] = {
+                                    "id": thread_id,
+                                    "messages": [],
+                                    "agents": set()
+                                }
+
+                            threads[thread_id]["messages"].append({
+                                "id": all_docs["ids"][i],
+                                "text": all_docs["documents"][i][:100] + "..." if len(all_docs["documents"][i]) > 100 else all_docs["documents"][i],
+                                "agent_id": metadata.get("agent_id", "unknown")
+                            })
+
+                            threads[thread_id]["agents"].add(metadata.get("agent_id", "unknown"))
+
+                    if threads:
+                        st.markdown(f"**{len(threads)} active thread(s)**")
+
+                        # Sort by message count (descending)
+                        sorted_threads = sorted(
+                            threads.items(),
+                            key=lambda x: len(x[1]["messages"]),
+                            reverse=True
+                        )
+
+                        for thread_id, thread_data in sorted_threads[:10]:  # Show top 10
+                            msg_count = len(thread_data["messages"])
+                            agents_str = ", ".join(sorted(thread_data["agents"]))
+
+                            st.markdown(f"""
+**📍 {thread_id}**
+{msg_count} message(s) | Agents: {agents_str}
+""")
+
+                            # Show first message snippet
+                            if thread_data["messages"]:
+                                first_msg = thread_data["messages"][0]
+                                st.caption(f"↳ {first_msg['agent_id']}: {first_msg['text']}")
+
+                            # Button to filter by thread (sets filter in session state)
+                            if st.button(f"🔍 View Thread", key=f"thread_{thread_id}"):
+                                st.session_state.active_thread_filter = thread_id
+                                st.success(f"Filtered to thread: {thread_id}")
+                    else:
+                        st.info("No conversation threads yet")
+                else:
+                    st.info("Village is empty")
+
+            except Exception as e:
+                st.error(f"Error loading threads: {e}")
+
         # ========== PHASE 1 POLISH: Agent Quick Actions & Status ==========
         st.divider()
 
