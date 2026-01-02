@@ -478,7 +478,7 @@ def socratic_council(
         from core import ClaudeAPIClient, ClaudeModels
 
         if not model:
-            model = ClaudeModels.SONNET_3_7.value  # Good balance of cost/quality
+            model = ClaudeModels.SONNET_4_5.value  # Good balance of cost/quality
 
         # Format the question with options
         options_text = "\n".join([f"{i+1}. {opt}" for i, opt in enumerate(options)])
@@ -531,6 +531,14 @@ Analyze each option carefully and choose the best one. Provide your choice as a 
             except Exception as e:
                 logger.error(f"Council agent {i+1} failed: {e}")
                 continue
+
+        # Check if any votes were cast
+        total_votes = sum(votes.values())
+        if total_votes == 0:
+            return {
+                "success": False,
+                "error": "No agents were able to vote. Check logs for API errors."
+            }
 
         # Determine winner
         winner = max(votes, key=votes.get)

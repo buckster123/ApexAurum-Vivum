@@ -31,7 +31,7 @@ class PresetManager:
             "description": "Fastest responses with minimal cost",
             "is_built_in": True,
             "settings": {
-                "model": "claude-3-5-haiku-20241022",
+                "model": "claude-haiku-4-5-20251001",
                 "cache_strategy": "conservative",
                 "context_strategy": "manual",
                 "temperature": 0.7,
@@ -48,7 +48,7 @@ class PresetManager:
             "description": "Maximum savings with aggressive caching",
             "is_built_in": True,
             "settings": {
-                "model": "claude-3-5-haiku-20241022",
+                "model": "claude-haiku-4-5-20251001",
                 "cache_strategy": "aggressive",
                 "context_strategy": "aggressive",
                 "temperature": 0.8,

@@ -1385,6 +1385,123 @@ def render_sidebar():
                     st.session_state.show_council = True
                     st.rerun()
 
+        # ========== PHASE 2B-1: Agent Monitoring ==========
+        # Show individual agent details when agents exist
+        if agents_data:
+            st.markdown("---")
+            st.markdown("#### 🔍 Active Agents")
+
+            # Sort agents: running first, then completed, then failed, newest first
+            status_priority = {"running": 0, "completed": 1, "failed": 2, "pending": 3}
+            sorted_agents = sorted(
+                agents_data,
+                key=lambda a: (status_priority.get(a["status"], 4), a.get("created_at", "")),
+                reverse=True  # Newest first within each status group
+            )
+
+            # Show up to 10 most recent agents
+            for agent in sorted_agents[:10]:
+                agent_id = agent["agent_id"]
+                status = agent["status"]
+                agent_type = agent["agent_type"]
+                task = agent["task"]
+
+                # Status indicator
+                if status == "running":
+                    status_icon = "🔄"
+                    status_color = "🔵"
+                elif status == "completed":
+                    status_icon = "✅"
+                    status_color = "🟢"
+                elif status == "failed":
+                    status_icon = "❌"
+                    status_color = "🔴"
+                else:  # pending
+                    status_icon = "⏳"
+                    status_color = "🟡"
+
+                # Agent type icon
+                type_icons = {
+                    "general": "🤖",
+                    "researcher": "🔬",
+                    "coder": "💻",
+                    "analyst": "📊",
+                    "writer": "✍️"
+                }
+                type_icon = type_icons.get(agent_type, "🤖")
+
+                # Task preview (truncate)
+                task_preview = task[:40] + "..." if len(task) > 40 else task
+
+                # Timing
+                created_at = agent.get("created_at")
+                completed_at = agent.get("completed_at")
+                started_at = agent.get("started_at")
+
+                timing_str = ""
+                if status == "running" and started_at:
+                    # Show elapsed time
+                    try:
+                        from datetime import datetime
+                        start = datetime.fromisoformat(started_at)
+                        elapsed = (datetime.now() - start).total_seconds()
+                        timing_str = f"⏱️ {elapsed:.0f}s"
+                    except:
+                        timing_str = "⏱️ Running..."
+                elif status == "completed" and started_at and completed_at:
+                    # Show duration
+                    try:
+                        from datetime import datetime
+                        start = datetime.fromisoformat(started_at)
+                        end = datetime.fromisoformat(completed_at)
+                        duration = (end - start).total_seconds()
+                        timing_str = f"✓ {duration:.1f}s"
+                    except:
+                        timing_str = "✓ Done"
+                elif status == "failed":
+                    timing_str = "✗ Failed"
+
+                # Agent expander
+                with st.expander(f"{status_color} {type_icon} {agent_id[:8]}... • {task_preview}", expanded=False):
+                    # Agent details
+                    st.caption(f"**Status:** {status.title()} {status_icon}")
+                    st.caption(f"**Type:** {agent_type.title()} {type_icon}")
+                    st.caption(f"**Time:** {timing_str}")
+
+                    # Full task
+                    st.markdown("**Task:**")
+                    st.text(task)
+
+                    # Result preview for completed agents
+                    if status == "completed" and agent.get("result"):
+                        result = agent["result"]
+                        st.markdown("**Result:**")
+
+                        # Show full results (no truncation)
+                        if isinstance(result, str):
+                            # Detect if it's code
+                            if any(x in result for x in ["def ", "class ", "import ", "```"]):
+                                st.code(result, language="python")
+                            else:
+                                st.markdown(result)
+                        elif isinstance(result, (dict, list)):
+                            st.json(result)
+                        else:
+                            st.text(str(result))
+
+                    # Error display for failed agents
+                    elif status == "failed" and agent.get("error"):
+                        st.error(f"**Error:** {agent['error']}")
+
+                    # View full results button
+                    if status in ["completed", "failed"]:
+                        if st.button(f"📄 View Full Results", key=f"view_agent_{agent_id}", use_container_width=True):
+                            # Open agent results viewer (existing in dialogs)
+                            st.session_state.view_agent_result = agent_id
+                            st.rerun()
+
+        # ========== END PHASE 2B-1 ==========
+
         # ========== END PHASE 1 POLISH ==========
 
         st.divider()
@@ -1547,10 +1664,12 @@ def render_sidebar():
 
             # Model name mapping for display
             model_display = {
-                "claude-3-5-haiku-20241022": "Haiku",
+                "claude-haiku-4-5-20251001": "Haiku 4.5",
                 "claude-sonnet-4-5-20250929": "Sonnet 4.5",
-                "claude-sonnet-3-7-20250219": "Sonnet 3.7",
-                "claude-opus-4-5-20251101": "Opus 4.5"
+                "claude-opus-4-5-20251101": "Opus 4.5",
+                # Legacy
+                "claude-3-5-haiku-20241022": "Haiku 3.5",
+                "claude-sonnet-3-7-20250219": "Sonnet 3.7"
             }
             model_name = model_display.get(settings['model'], settings['model'])
 
@@ -1570,8 +1689,7 @@ def render_sidebar():
         model_options = {
             "Claude Opus 4.5 (Best + Vision)": ClaudeModels.OPUS_4_5.value,
             "Claude Sonnet 4.5 (Balanced + Vision)": ClaudeModels.SONNET_4_5.value,
-            "Claude Sonnet 3.7 (Fast + Vision)": ClaudeModels.SONNET_3_7.value,
-            "Claude Haiku 3.5 (Fastest + Vision)": ClaudeModels.HAIKU_3_5.value,
+            "Claude Haiku 4.5 (Fastest + Vision)": ClaudeModels.HAIKU_4_5.value,
         }
 
         selected_model_name = st.selectbox(
@@ -3338,9 +3456,9 @@ def main():
 
                 # Parse model
                 model_map = {
-                    "Haiku (fast & cheap)": "claude-3-5-haiku-20241022",
-                    "Sonnet (balanced)": "claude-3-7-sonnet-20250219",
-                    "Opus (best quality)": "claude-opus-4-20250514"
+                    "Haiku (fast & cheap)": "claude-haiku-4-5-20251001",
+                    "Sonnet (balanced)": "claude-sonnet-4-5-20250929",
+                    "Opus (best quality)": "claude-opus-4-5-20251101"
                 }
                 model_id = model_map[model]
 
@@ -3432,6 +3550,10 @@ def main():
     if st.session_state.get("show_council", False):
         st.markdown("### 🗳️ Socratic Council - Multi-Agent Voting")
 
+        # Initialize council results in session state
+        if "council_results" not in st.session_state:
+            st.session_state.council_results = None
+
         with st.form("socratic_council_form"):
             question = st.text_input(
                 "Question",
@@ -3440,25 +3562,34 @@ def main():
             )
 
             st.write("**Options** (2-5 options):")
+            st.caption("💡 Tip: Fill out options then click 'Run Council' at bottom")
 
             # Dynamic options
             options = []
             for i in range(len(st.session_state.council_options)):
-                opt = st.text_input(
-                    f"Option {i+1}",
-                    value=st.session_state.council_options[i],
-                    key=f"opt_{i}"
-                )
-                if opt:
-                    options.append(opt)
+                opt_col, del_col = st.columns([4, 1])
+                with opt_col:
+                    opt = st.text_input(
+                        f"Option {i+1}",
+                        value=st.session_state.council_options[i],
+                        key=f"opt_{i}"
+                    )
+                    if opt:
+                        options.append(opt)
+                with del_col:
+                    # Remove button (only show if more than 2 options)
+                    if len(st.session_state.council_options) > 2:
+                        if st.form_submit_button("🗑️", key=f"del_opt_{i}"):
+                            st.session_state.council_options.pop(i)
+                            st.rerun()
 
-            # Add option button
+            # Add option button (move to bottom, outside main submit area)
             if len(st.session_state.council_options) < 5:
-                add_opt_col = st.columns([1, 3])[0]
-                with add_opt_col:
-                    if st.form_submit_button("➕ Add Option"):
-                        st.session_state.council_options.append("")
-                        st.rerun()
+                if st.form_submit_button("➕ Add Another Option"):
+                    st.session_state.council_options.append("")
+                    st.rerun()
+
+            st.divider()
 
             num_agents = st.slider(
                 "Number of Agents",
@@ -3490,7 +3621,7 @@ def main():
                 # Run council
                 from tools.agents import socratic_council
 
-                model_id = "claude-3-7-sonnet-20250219" if "Sonnet" in model else "claude-opus-4-20250514"
+                model_id = "claude-sonnet-4-5-20250929" if "Sonnet" in model else "claude-opus-4-5-20251101"
 
                 with st.spinner(f"Running council with {num_agents} agents..."):
                     result = socratic_council(
@@ -3500,44 +3631,140 @@ def main():
                         model=model_id
                     )
 
-                if result.get("success"):
-                    st.success("✅ Council completed!")
+                # Store results in session state
+                st.session_state.council_results = {
+                    "result": result,
+                    "num_agents": num_agents,
+                    "question": question
+                }
+                st.rerun()
 
-                    # Display results
-                    st.markdown("### Results")
+        # Display results OUTSIDE the form
+        if st.session_state.council_results:
+            result_data = st.session_state.council_results
+            result = result_data["result"]
+            num_agents = result_data["num_agents"]
+            question = result_data["question"]
 
-                    winner = result.get("winner")
-                    votes = result.get("votes")
-                    winner_votes = result.get("winner_votes")
+            if result.get("success"):
+                st.success("✅ Council completed!")
 
-                    st.metric("Winner", f"{winner} ({winner_votes}/{num_agents} votes)")
+                # Display results
+                st.markdown("### Results")
+                st.caption(f"**Question:** {question}")
 
-                    # Vote chart
-                    st.write("**Votes:**")
-                    for opt, count in votes.items():
-                        bar = "█" * count
-                        st.write(f"• {opt}: {bar} {count}")
+                winner = result.get("winner")
+                votes = result.get("votes")
+                winner_votes = result.get("winner_votes")
 
-                    # Consensus indicator
-                    if result.get("consensus"):
-                        st.info("✅ Strong consensus reached (> 50% agreement)")
-                    else:
-                        st.warning("⚠️ No strong consensus (split decision)")
+                st.metric("Winner", f"{winner} ({winner_votes}/{num_agents} votes)")
 
-                    # Reasoning
-                    st.write("**Agent Reasoning:**")
-                    for item in result.get("reasoning", []):
-                        with st.expander(f"Agent {item['agent']} → {item['vote']}"):
-                            st.write(item['reasoning'])
+                # Vote chart
+                st.write("**Votes:**")
+                for opt, count in votes.items():
+                    bar = "█" * count
+                    st.write(f"• {opt}: {bar} {count}")
 
-                    # Close button
-                    if st.button("Close Results", use_container_width=True):
-                        st.session_state.show_council = False
-                        st.session_state.council_options = ["", ""]
-                        st.rerun()
-
+                # Consensus indicator
+                if result.get("consensus"):
+                    st.info("✅ Strong consensus reached (> 50% agreement)")
                 else:
-                    st.error(f"❌ Error: {result.get('error')}")
+                    st.warning("⚠️ No strong consensus (split decision)")
+
+                # Reasoning
+                st.write("**Agent Reasoning:**")
+                for item in result.get("reasoning", []):
+                    with st.expander(f"Agent {item['agent']} → {item['vote']}"):
+                        st.write(item['reasoning'])
+
+                # Export/Save options
+                st.divider()
+                st.write("**💾 Save Results:**")
+
+                col1, col2, col3, col4 = st.columns(4)
+
+                with col1:
+                    # Copy to clipboard
+                    export_text = f"""Council Results
+Question: {question}
+Winner: {winner} ({winner_votes}/{num_agents} votes)
+
+Votes:
+"""
+                    for opt, count in votes.items():
+                        export_text += f"• {opt}: {count}\n"
+
+                    export_text += "\nReasoning:\n"
+                    for item in result.get("reasoning", []):
+                        export_text += f"\nAgent {item['agent']} → {item['vote']}\n{item['reasoning']}\n"
+
+                    if st.button("📋 Copy", use_container_width=True, help="Copy results to clipboard"):
+                        st.toast("✅ Results copied!", icon="✅")
+
+                with col2:
+                    # Save to knowledge base
+                    if st.button("🧠 Knowledge", use_container_width=True, help="Save to knowledge base"):
+                        from tools.vector_search import vector_add_knowledge
+                        knowledge_text = f"Council vote on: {question}\nWinner: {winner} ({winner_votes}/{num_agents} votes)"
+                        try:
+                            vector_add_knowledge(
+                                fact=knowledge_text,
+                                category="general",
+                                source="council_vote"
+                            )
+                            st.toast("✅ Saved to knowledge base!", icon="🧠")
+                        except Exception as e:
+                            st.toast(f"❌ Error: {str(e)}", icon="❌")
+
+                with col3:
+                    # Save to memory
+                    if st.button("💾 Memory", use_container_width=True, help="Save to memory"):
+                        from tools.memory import memory_store
+                        memory_key = f"council_{question[:30].replace(' ', '_')}"
+                        memory_value = {"question": question, "winner": winner, "votes": votes}
+                        try:
+                            memory_store(memory_key, memory_value)
+                            st.toast(f"✅ Saved as: {memory_key}", icon="💾")
+                        except Exception as e:
+                            st.toast(f"❌ Error: {str(e)}", icon="❌")
+
+                with col4:
+                    # Download as JSON
+                    import json
+                    download_data = {
+                        "question": question,
+                        "winner": winner,
+                        "votes": votes,
+                        "total_agents": num_agents,
+                        "consensus": result.get("consensus"),
+                        "reasoning": result.get("reasoning", [])
+                    }
+                    json_str = json.dumps(download_data, indent=2)
+
+                    st.download_button(
+                        label="📥 JSON",
+                        data=json_str,
+                        file_name=f"council_{question[:20].replace(' ', '_')}.json",
+                        mime="application/json",
+                        use_container_width=True,
+                        help="Download as JSON file"
+                    )
+
+                st.divider()
+
+                # Close button (now OUTSIDE form, so it works!)
+                if st.button("Close Results", use_container_width=True):
+                    st.session_state.show_council = False
+                    st.session_state.council_options = ["", ""]
+                    st.session_state.council_results = None
+                    st.rerun()
+
+            else:
+                st.error(f"❌ Error: {result.get('error')}")
+                if st.button("Close", use_container_width=True):
+                    st.session_state.show_council = False
+                    st.session_state.council_results = None
+                    st.rerun()
 
         st.markdown("---")
 

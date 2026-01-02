@@ -17,10 +17,11 @@ class ClaudeModels(Enum):
     # Claude Sonnet 4.5 - Balanced performance (RECOMMENDED DEFAULT)
     SONNET_4_5 = "claude-sonnet-4-5-20250929"
 
-    # Claude Sonnet 3.7 - Fast and capable
-    SONNET_3_7 = "claude-3-7-sonnet-20250219"
+    # Claude Haiku 4.5 - Fastest, most cost-effective
+    HAIKU_4_5 = "claude-haiku-4-5-20251001"
 
-    # Claude Haiku 3.5 - Fastest, most cost-effective
+    # Legacy models (kept for backwards compatibility)
+    SONNET_3_7 = "claude-3-7-sonnet-20250219"
     HAIKU_3_5 = "claude-3-5-haiku-20241022"
 
 
@@ -55,11 +56,20 @@ class ModelCapabilities:
             "cost": "low",
             "extended_thinking": False,
         },
-        ClaudeModels.HAIKU_3_5: {
-            "name": "Claude Haiku 3.5",
+        ClaudeModels.HAIKU_4_5: {
+            "name": "Claude Haiku 4.5",
             "max_tokens": 8192,
             "context_window": 200000,
             "best_for": ["simple queries", "high volume", "testing"],
+            "speed": "fastest",
+            "cost": "lowest",
+            "extended_thinking": False,
+        },
+        ClaudeModels.HAIKU_3_5: {
+            "name": "Claude Haiku 3.5 (Legacy)",
+            "max_tokens": 8192,
+            "context_window": 200000,
+            "best_for": ["legacy support"],
             "speed": "fastest",
             "cost": "lowest",
             "extended_thinking": False,
@@ -93,9 +103,9 @@ class ModelSelector:
             Recommended ClaudeModels enum value
         """
         task_map = {
-            "simple": ClaudeModels.HAIKU_3_5,
-            "fast": ClaudeModels.HAIKU_3_5,
-            "testing": ClaudeModels.HAIKU_3_5,
+            "simple": ClaudeModels.HAIKU_4_5,
+            "fast": ClaudeModels.HAIKU_4_5,
+            "testing": ClaudeModels.HAIKU_4_5,
             "standard": ClaudeModels.SONNET_4_5,
             "general": ClaudeModels.SONNET_4_5,
             "coding": ClaudeModels.SONNET_4_5,
@@ -115,7 +125,7 @@ class ModelSelector:
     @staticmethod
     def get_cheapest() -> ClaudeModels:
         """Get the cheapest model for testing/high volume"""
-        return ClaudeModels.HAIKU_3_5
+        return ClaudeModels.HAIKU_4_5
 
     @staticmethod
     def get_best() -> ClaudeModels:
@@ -154,8 +164,10 @@ def resolve_model(model_str: Optional[str] = None) -> str:
         return ClaudeModels.SONNET_4_5.value
     elif "sonnet" in model_lower:
         return ClaudeModels.SONNET_3_7.value
+    elif "haiku" in model_lower and ("4" in model_lower or "45" in model_lower):
+        return ClaudeModels.HAIKU_4_5.value
     elif "haiku" in model_lower:
-        return ClaudeModels.HAIKU_3_5.value
+        return ClaudeModels.HAIKU_4_5.value  # Default to 4.5
 
     # Default fallback
     return ModelSelector.get_default().value
