@@ -93,14 +93,14 @@ class ImportEngine:
         importer = self.importers[format]
         conversation = importer.import_conversation(content)
 
-        # Validate if requested
+        # Normalize first (add missing fields, fix structure)
+        conversation = self._normalize_conversation(conversation)
+
+        # Then validate the normalized structure
         if validate:
             is_valid, errors = self.validate_conversation(conversation)
             if not is_valid:
                 raise ValueError(f"Validation failed: {', '.join(errors)}")
-
-        # Ensure required fields and regenerate ID
-        conversation = self._normalize_conversation(conversation)
 
         return conversation
 
@@ -197,6 +197,26 @@ class ImportEngine:
         """
         # Generate new ID to avoid conflicts
         conversation["id"] = f"conv_{uuid.uuid4().hex[:16]}"
+
+        # Ensure title (auto-generate from first message if missing)
+        if "title" not in conversation or not conversation["title"]:
+            messages = conversation.get("messages", [])
+            if messages and len(messages) > 0:
+                # Use first user message content (truncated)
+                first_user_msg = next(
+                    (msg for msg in messages if msg.get("role") == "user"),
+                    messages[0]  # Fallback to first message
+                )
+                content = first_user_msg.get("content", "")
+                if isinstance(content, list):
+                    # Handle new Claude format with content blocks
+                    text = next((block.get("text", "") for block in content if block.get("type") == "text"), "")
+                else:
+                    text = content
+                # Truncate to reasonable title length
+                conversation["title"] = text[:60] + "..." if len(text) > 60 else text or "Imported Conversation"
+            else:
+                conversation["title"] = "Imported Conversation"
 
         # Ensure timestamps
         now = datetime.now().isoformat()
