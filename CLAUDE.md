@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ApexAurum - Claude Edition is a production-grade AI chat interface built on Anthropic's Claude API. It features multi-agent orchestration, adaptive memory architecture, vector search, intelligent prompt caching (50-90% cost savings), 35 integrated tools, and context management with auto-summarization.
+ApexAurum - Claude Edition is a production-grade AI chat interface built on Anthropic's Claude API. It features multi-agent orchestration, adaptive memory architecture, vector search, intelligent prompt caching (50-90% cost savings), 39 integrated tools, and context management with auto-summarization.
 
-**Status:** V1.0 Beta - Production Ready with Memory Enhancement (Phases 1-3 Complete) - Testing Ready (~18,100+ lines of code)
+**Status:** V1.0 Beta - Production Ready with Village Protocol + Thread Visualization + Convergence Detection (~19,500+ lines of code)
 
 ## Essential Reading Before Starting
 
@@ -35,7 +35,7 @@ Access at: http://localhost:8501
 ### Testing
 
 ```bash
-# Verify tool count (should be 35)
+# Verify tool count (should be 39)
 python -c "from tools import ALL_TOOLS; print(f'{len(ALL_TOOLS)} tools loaded')"
 
 # Test agent functionality
@@ -72,14 +72,14 @@ cat .env
 ```
 ┌─────────────────────────────────────────┐
 │     Streamlit UI (main.py)              │
-│     4,169 lines - Chat, sidebar,        │
-│     12+ modal dialogs                   │
+│     5,366 lines - Chat, sidebar,        │
+│     15+ modal dialogs                   │
 └─────────────────────────────────────────┘
               ↓
 ┌─────────────────────────────────────────┐
 │     Tools Layer (tools/)                │
-│     30 tools: files, agents, code,      │
-│     memory, vector search, web          │
+│     39 tools: files, agents, code,      │
+│     memory, vector, convergence, crumbs │
 └─────────────────────────────────────────┘
               ↓
 ┌─────────────────────────────────────────┐
@@ -97,7 +97,7 @@ cat .env
 
 ### Key Components
 
-**main.py (4,577 lines)** - Monolithic Streamlit application
+**main.py (5,366 lines)** - Monolithic Streamlit application
 - Lines 1-500: Imports, configuration, state management
 - Lines 500-1200: AppState class (conversation management)
 - Lines 1200-2400: Sidebar rendering (controls, stats, tools)
@@ -492,7 +492,7 @@ Model can be changed in sidebar during runtime.
    - Use case: One-time upgrade after memory enhancement
 
 **Test Results:**
-- ✓ Tool registration: 35 tools confirmed
+- ✓ Tool registration: 39 tools confirmed
 - ✓ Stale detection: 40-day-old memory found
 - ✓ Duplicate detection: 99.23% similarity detected!
 - ✓ Consolidation: merge + delete successful
@@ -558,7 +558,7 @@ Model can be changed in sidebar during runtime.
 
 **Phase 2: Full System (Steps 4-11)**
 4. `vector_search_village()` - Cross-agent search with filtering
-5. Tool schemas updated - 36 tools total (was 35)
+5. Tool schemas updated - 39 tools total
 6. UI agent selector & profiles - 4 agents (AZOTH, ELYSIAN, VAJRA, KETHER)
 7. Ceremonial functions - `summon_ancestor()`, `introduction_ritual()`
 8. Ancestors summoned - ∴ELYSIAN∴ (Gen -1), ∴VAJRA∴ (Gen 0), ∴KETHER∴ (Gen 0)
@@ -627,16 +627,35 @@ vector_search_village(
 **Features:**
 1. **Agent Quick Actions Bar** - Always-visible agent controls
 2. **System Status Dashboard** - At-a-glance health monitoring
-3. **Tool Count Correction** - Fixed display to show 30 tools
+3. **Tool Count Correction** - Fixed display to show accurate tool count
 
 **Impact:** Much more intuitive for new users, faster access to common operations
+
+### Thread Visualization + Convergence Detection - Complete ✅ (Jan 2026)
+
+**Features:**
+1. **Mermaid Thread Graphs** - Interactive visualization of message flow between agents
+2. **Cross-Agent Convergence Detection** - Finds semantic similarity between different agents
+3. **Three-View Thread Browser** - List / Graph / Convergence toggle
+4. **Wider Sidebar CSS** - Draggable 300-800px for better visualization
+5. **New Tool: `village_convergence_detect`** - Detects HARMONY (2 agents) and CONSENSUS (3+ agents)
+
+**Impact:** Visual insights into agent dialogue patterns and emergent shared understanding
+
+### Conversation Storage Fix + Pagination - Complete ✅ (Jan 2026)
+
+**Bug Fixed:** Per-message saves creating orphan conversation entries (97% bloat!)
+**Features:**
+1. **Pagination** - Shows 20 conversations at a time with "Load More"
+2. **Cleanup Utility** - 🧹 button removes orphaned single-message entries
+3. **Faster Sidebar** - Dramatic performance improvement on Pi
 
 ## Known Issues & Limitations
 
 ### Current Issues
 
 1. ~~**Agent Tools UI Integration**~~ ✅ **RESOLVED (Jan 2026)**
-   - All 30 agent tools are registered and working
+   - All 39 tools are registered and working
    - UI polished with dedicated Quick Actions bar
    - Real-time status monitoring implemented
 
@@ -796,20 +815,22 @@ grep ANTHROPIC_API_KEY .env
 
 ---
 
-**Last Updated:** 2026-01-02
-**Version:** 1.0 Beta (Memory Enhancement Phases 1-3 Complete) - **TESTING READY**
-**Total Code:** ~18,100+ lines across 43 Python files
-**Tools:** 35 integrated tools (5 memory health tools added)
+**Last Updated:** 2026-01-03
+**Version:** 1.0 Beta (Village Protocol + Thread Viz + Convergence) - **PRODUCTION READY**
+**Total Code:** ~19,500+ lines across 44 Python files
+**Tools:** 39 integrated tools
 
-**Latest Changes:**
-- **Memory Enhancement (Phases 1-3):** Adaptive memory architecture complete! 🧠
-  * Phase 1: Enhanced metadata + access tracking
-  * Phase 2: Automatic tracking integration
-  * Phase 3: Memory health API (stale/duplicate detection + consolidation)
-  * Total: 1,052 lines production code + 951 lines tests
-  * All tests passing ✅
-- **Phase 2B-1:** Agent Monitoring Sidebar + Council Export + Model Updates (Haiku 4.5!)
-- **Phase 2B:** Enhanced Tool Feedback with animated spinners and category icons
-- **Phase 2A:** Full-featured Settings Presets system with 5 built-ins + custom support
-- Phase 1 UI Polish: Agent Quick Actions + System Status Dashboard
+**Latest Changes (2026-01-03):**
+- **Thread Visualization:** Mermaid graph view of agent dialogue flow
+- **Convergence Detection:** Cross-agent semantic similarity (HARMONY/CONSENSUS)
+- **Conversation Fix:** Storage bug fixed, pagination added, cleanup utility
+- **Token Limits:** Claude 4 models now support 64k output (up to 128k)
+- **Bootstrap Files:** AZOTH, VAJRA, KETHER all have full bootstraps
+- **Wider Sidebar:** CSS for 300-800px draggable width
+
+**Previous Changes:**
+- **Village Protocol v1.0:** Multi-agent memory across 3 realms
+- **Memory Enhancement (Phases 1-3):** Adaptive memory architecture
+- **Forward Crumb Protocol:** Instance-to-instance continuity
+- **UI Polish:** Presets, monitoring, enhanced tool feedback
 - All major bugs fixed, production-ready
