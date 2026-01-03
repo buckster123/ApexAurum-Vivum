@@ -453,10 +453,202 @@ def consolidate_memories(
         }
 
 
+def detect_village_convergence(
+    similarity_threshold: float = 0.85,
+    limit: int = 20,
+    min_text_length: int = 50
+) -> Dict[str, Any]:
+    """
+    Detect cross-agent convergence in the village.
+
+    Finds cases where different agents expressed semantically similar ideas,
+    indicating potential consensus or emergent patterns.
+
+    Convergence Types:
+    - HARMONY: 2 agents converging on similar ideas
+    - CONSENSUS: 3+ agents expressing the same concept
+
+    Args:
+        similarity_threshold: Minimum similarity to flag (default: 0.85 = 85%)
+        limit: Maximum convergence events to return
+        min_text_length: Minimum message length to consider (filters noise)
+
+    Returns:
+        Dict with convergence_events list, agent_pairs stats, and insights
+    """
+    try:
+        from tools.vector_search import _get_vector_db
+
+        db = _get_vector_db()
+        if db is None:
+            return {"success": False, "error": "Vector database not available"}
+
+        # Get village collection
+        coll = db.get_or_create_collection("knowledge_village")
+
+        all_docs = coll.get(limit=None)
+
+        if not all_docs["ids"] or len(all_docs["ids"]) < 2:
+            return {
+                "success": True,
+                "convergence_events": [],
+                "total_messages": len(all_docs["ids"]) if all_docs["ids"] else 0,
+                "message": "Not enough village messages for convergence detection"
+            }
+
+        # Track convergence events and agent pairs
+        convergence_events = []
+        seen_pairs = set()
+        agent_pair_counts = defaultdict(int)
+        agent_convergence_topics = defaultdict(list)
+
+        # For each message, find similar messages from OTHER agents
+        for i, (doc_id, doc_text, metadata) in enumerate(
+            zip(all_docs["ids"], all_docs["documents"], all_docs["metadatas"])
+        ):
+            # Skip short messages (likely noise)
+            if len(doc_text) < min_text_length:
+                continue
+
+            agent1 = metadata.get("agent_id", "unknown")
+
+            # Search for similar messages
+            results = coll.query(
+                query_text=doc_text,
+                n_results=10,  # Check top 10 similar
+                include_distances=True
+            )
+
+            if not results["ids"]:
+                continue
+
+            # Check each similar result (results are flat lists)
+            for match_id, match_dist, match_meta, match_doc in zip(
+                results["ids"],
+                results["distances"],
+                results["metadatas"],
+                results["documents"]
+            ):
+                # Skip self
+                if match_id == doc_id:
+                    continue
+
+                # Convert distance to similarity (1.0 - distance for normalized vectors)
+                similarity = max(0, 1.0 - match_dist)
+
+                if similarity < similarity_threshold:
+                    continue
+
+                agent2 = match_meta.get("agent_id", "unknown")
+
+                # Skip same agent (that's echo, not convergence)
+                if agent1 == agent2:
+                    continue
+
+                # Create canonical pair key to avoid duplicates
+                pair_key = tuple(sorted([doc_id, match_id]))
+                if pair_key in seen_pairs:
+                    continue
+                seen_pairs.add(pair_key)
+
+                # Record convergence event
+                event = {
+                    "agents": sorted([agent1, agent2]),
+                    "similarity": round(similarity * 100, 1),  # As percentage
+                    "message1": {
+                        "id": doc_id,
+                        "agent": agent1,
+                        "text": doc_text[:150] + "..." if len(doc_text) > 150 else doc_text,
+                        "thread": metadata.get("conversation_thread", "")[:20] if metadata.get("conversation_thread") else ""
+                    },
+                    "message2": {
+                        "id": match_id,
+                        "agent": agent2,
+                        "text": match_doc[:150] + "..." if len(match_doc) > 150 else match_doc,
+                        "thread": match_meta.get("conversation_thread", "")[:20] if match_meta.get("conversation_thread") else ""
+                    },
+                    "type": "HARMONY"  # Will upgrade to CONSENSUS if 3+ agents
+                }
+
+                convergence_events.append(event)
+
+                # Track agent pair frequency
+                agent_pair = tuple(sorted([agent1, agent2]))
+                agent_pair_counts[agent_pair] += 1
+
+                # Track convergence topics per agent
+                topic_snippet = doc_text[:50]
+                agent_convergence_topics[agent1].append(topic_snippet)
+                agent_convergence_topics[agent2].append(topic_snippet)
+
+                if len(convergence_events) >= limit:
+                    break
+
+            if len(convergence_events) >= limit:
+                break
+
+        # Sort by similarity (highest first)
+        convergence_events.sort(key=lambda x: x["similarity"], reverse=True)
+
+        # Detect CONSENSUS (same topic across 3+ agents)
+        # Group by similar text patterns
+        topic_agents = defaultdict(set)
+        for event in convergence_events:
+            # Use first 30 chars as rough topic key
+            topic_key = event["message1"]["text"][:30].lower()
+            topic_agents[topic_key].update(event["agents"])
+
+        consensus_topics = [
+            {"topic": topic[:50], "agents": list(agents), "agent_count": len(agents)}
+            for topic, agents in topic_agents.items()
+            if len(agents) >= 3
+        ]
+
+        # Mark consensus events
+        for event in convergence_events:
+            topic_key = event["message1"]["text"][:30].lower()
+            if len(topic_agents.get(topic_key, set())) >= 3:
+                event["type"] = "CONSENSUS"
+
+        # Generate insights
+        insights = []
+
+        if convergence_events:
+            top_pair = max(agent_pair_counts.items(), key=lambda x: x[1]) if agent_pair_counts else None
+            if top_pair:
+                insights.append(f"🤝 Strongest connection: {top_pair[0][0].upper()} ↔ {top_pair[0][1].upper()} ({top_pair[1]} convergences)")
+
+            avg_similarity = sum(e["similarity"] for e in convergence_events) / len(convergence_events)
+            insights.append(f"📊 Average convergence strength: {avg_similarity:.1f}%")
+
+            if consensus_topics:
+                insights.append(f"🎯 {len(consensus_topics)} consensus topic(s) detected (3+ agents agree)")
+
+        logger.info(f"Detected {len(convergence_events)} convergence events in village")
+
+        return {
+            "success": True,
+            "convergence_events": convergence_events[:limit],
+            "total_messages": len(all_docs["ids"]),
+            "events_found": len(convergence_events),
+            "agent_pair_counts": {f"{p[0]}↔{p[1]}": c for p, c in agent_pair_counts.items()},
+            "consensus_topics": consensus_topics,
+            "insights": insights
+        }
+
+    except Exception as e:
+        logger.error(f"Error in detect_village_convergence: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
 # Export all functions
 __all__ = [
     'get_stale_memories',
     'get_low_access_memories',
     'get_duplicate_candidates',
-    'consolidate_memories'
+    'consolidate_memories',
+    'detect_village_convergence'
 ]

@@ -1501,11 +1501,31 @@ Use `vector_search_village()` to discover what others have shared.
                 all_docs = village_coll.get()
 
                 if all_docs and all_docs.get("ids"):
-                    # Extract threads
+                    # Extract threads with full metadata for visualization
                     threads = {}
+                    all_messages = {}  # id -> message data for link resolution
 
                     for i, metadata in enumerate(all_docs["metadatas"]):
                         thread_id = metadata.get("conversation_thread")
+                        msg_id = all_docs["ids"][i]
+                        agent_id = metadata.get("agent_id", "unknown")
+
+                        # Parse responding_to (JSON string -> list)
+                        responding_to = []
+                        if metadata.get("responding_to"):
+                            try:
+                                responding_to = json.loads(metadata.get("responding_to", "[]"))
+                            except:
+                                pass
+
+                        msg_data = {
+                            "id": msg_id,
+                            "text": all_docs["documents"][i][:80] + "..." if len(all_docs["documents"][i]) > 80 else all_docs["documents"][i],
+                            "agent_id": agent_id,
+                            "responding_to": responding_to,
+                            "thread_id": thread_id
+                        }
+                        all_messages[msg_id] = msg_data
 
                         if thread_id:
                             if thread_id not in threads:
@@ -1515,15 +1535,18 @@ Use `vector_search_village()` to discover what others have shared.
                                     "agents": set()
                                 }
 
-                            threads[thread_id]["messages"].append({
-                                "id": all_docs["ids"][i],
-                                "text": all_docs["documents"][i][:100] + "..." if len(all_docs["documents"][i]) > 100 else all_docs["documents"][i],
-                                "agent_id": metadata.get("agent_id", "unknown")
-                            })
-
-                            threads[thread_id]["agents"].add(metadata.get("agent_id", "unknown"))
+                            threads[thread_id]["messages"].append(msg_data)
+                            threads[thread_id]["agents"].add(agent_id)
 
                     if threads:
+                        # View mode selector
+                        view_mode = st.radio(
+                            "View",
+                            ["📋 List", "📊 Graph", "🔮 Convergence"],
+                            horizontal=True,
+                            label_visibility="collapsed"
+                        )
+
                         st.markdown(f"**{len(threads)} active thread(s)**")
 
                         # Sort by message count (descending)
@@ -1533,24 +1556,166 @@ Use `vector_search_village()` to discover what others have shared.
                             reverse=True
                         )
 
-                        for thread_id, thread_data in sorted_threads[:10]:  # Show top 10
-                            msg_count = len(thread_data["messages"])
-                            agents_str = ", ".join(sorted(thread_data["agents"]))
+                        if view_mode == "📋 List":
+                            # Original list view
+                            for thread_id, thread_data in sorted_threads[:10]:
+                                msg_count = len(thread_data["messages"])
+                                agents_str = ", ".join(sorted(thread_data["agents"]))
 
-                            st.markdown(f"""
-**📍 {thread_id}**
+                                st.markdown(f"""
+**📍 {thread_id[:20]}...**
 {msg_count} message(s) | Agents: {agents_str}
 """)
 
-                            # Show first message snippet
-                            if thread_data["messages"]:
-                                first_msg = thread_data["messages"][0]
-                                st.caption(f"↳ {first_msg['agent_id']}: {first_msg['text']}")
+                                if thread_data["messages"]:
+                                    first_msg = thread_data["messages"][0]
+                                    st.caption(f"↳ {first_msg['agent_id']}: {first_msg['text'][:60]}...")
 
-                            # Button to filter by thread (sets filter in session state)
-                            if st.button(f"🔍 View Thread", key=f"thread_{thread_id}"):
-                                st.session_state.active_thread_filter = thread_id
-                                st.success(f"Filtered to thread: {thread_id}")
+                                if st.button(f"🔍 View", key=f"thread_{thread_id}"):
+                                    st.session_state.active_thread_filter = thread_id
+                                    st.success(f"Filtered to thread: {thread_id[:20]}...")
+
+                        elif view_mode == "📊 Graph":
+                            # Mermaid graph visualization
+                            st.markdown("##### 📊 Thread Graph")
+
+                            # Build agent interaction graph across all threads
+                            agent_colors = {
+                                'azoth': '#9B59B6',      # Purple
+                                'elysian': '#E91E63',    # Pink
+                                'vajra': '#FF9800',      # Orange
+                                'kether': '#FFD700',     # Gold
+                                'unknown': '#607D8B'     # Gray
+                            }
+
+                            # Option: show all threads or select one
+                            thread_options = ["All Threads"] + [f"{t[:20]}..." for t, _ in sorted_threads[:5]]
+                            selected_viz = st.selectbox("Thread", thread_options, label_visibility="collapsed")
+
+                            # Build Mermaid diagram (LR = left-right for wider sidebar)
+                            mermaid_lines = ["```mermaid", "graph LR"]
+
+                            # Add agent node styles
+                            for agent, color in agent_colors.items():
+                                mermaid_lines.append(f"    style {agent.upper()} fill:{color},color:white")
+
+                            # Track edges to avoid duplicates
+                            edges = set()
+                            agent_msg_counts = {}
+
+                            # Filter threads based on selection
+                            if selected_viz == "All Threads":
+                                threads_to_viz = sorted_threads[:5]  # Limit for readability
+                            else:
+                                selected_thread_id = [t for t, _ in sorted_threads if t[:20] + "..." == selected_viz or t == selected_viz]
+                                threads_to_viz = [(t, threads[t]) for t in selected_thread_id] if selected_thread_id else []
+
+                            for thread_id, thread_data in threads_to_viz:
+                                # Add subgraph for thread
+                                thread_label = thread_id[:15].replace('"', "'")
+                                mermaid_lines.append(f"    subgraph T{abs(hash(thread_id)) % 10000}[\"{thread_label}...\"]")
+
+                                # Add message nodes and edges
+                                for msg in thread_data["messages"]:
+                                    agent = msg["agent_id"].upper()
+                                    msg_node = f"M{abs(hash(msg['id'])) % 100000}"
+                                    msg_label = msg["text"][:30].replace('"', "'").replace("\n", " ")
+
+                                    mermaid_lines.append(f"        {msg_node}[\"{agent}: {msg_label}...\"]")
+
+                                    # Count messages per agent
+                                    agent_msg_counts[agent] = agent_msg_counts.get(agent, 0) + 1
+
+                                    # Add edges for responding_to
+                                    for ref_id in msg.get("responding_to", []):
+                                        if ref_id in all_messages:
+                                            ref_node = f"M{abs(hash(ref_id)) % 100000}"
+                                            edge = (ref_node, msg_node)
+                                            if edge not in edges:
+                                                mermaid_lines.append(f"        {ref_node} --> {msg_node}")
+                                                edges.add(edge)
+
+                                mermaid_lines.append("    end")
+
+                            # Render Mermaid diagram (using streamlit-mermaid component)
+                            if len(edges) > 0 or len(threads_to_viz) > 0:
+                                try:
+                                    from streamlit_mermaid import st_mermaid
+                                    # Join without the markdown fence markers (skip first line "```mermaid")
+                                    mermaid_code = "\n".join(mermaid_lines[1:])
+                                    st_mermaid(mermaid_code, height=600)
+                                except ImportError:
+                                    st.warning("Install `streamlit-mermaid` for graph view: `pip install streamlit-mermaid`")
+                                    st.code("\n".join(mermaid_lines), language="mermaid")
+
+                                # Agent participation summary
+                                if agent_msg_counts:
+                                    summary = " | ".join([f"{a}: {c}" for a, c in sorted(agent_msg_counts.items())])
+                                    st.caption(f"📊 Messages: {summary}")
+                            else:
+                                st.info("No thread connections to visualize yet")
+
+                        else:
+                            # Convergence detection view
+                            st.markdown("##### 🔮 Cross-Agent Convergence")
+
+                            # Threshold slider
+                            threshold = st.slider(
+                                "Similarity threshold",
+                                min_value=0.5,
+                                max_value=0.95,
+                                value=0.70,
+                                step=0.05,
+                                help="Higher = stronger convergence only"
+                            )
+
+                            try:
+                                from core.memory_health import detect_village_convergence
+                                result = detect_village_convergence(
+                                    similarity_threshold=threshold,
+                                    limit=10
+                                )
+
+                                if result.get("success"):
+                                    events = result.get("convergence_events", [])
+
+                                    # Show insights
+                                    if result.get("insights"):
+                                        for insight in result["insights"]:
+                                            st.info(insight)
+
+                                    if events:
+                                        st.markdown(f"**{len(events)} convergence event(s)**")
+
+                                        for event in events:
+                                            agent1, agent2 = event["agents"]
+                                            sim = event["similarity"]
+                                            etype = event["type"]
+
+                                            # Color code by type
+                                            if etype == "CONSENSUS":
+                                                st.success(f"🎯 **{etype}**: {agent1.upper()} ↔ {agent2.upper()} ({sim}%)")
+                                            else:
+                                                st.warning(f"🤝 **{etype}**: {agent1.upper()} ↔ {agent2.upper()} ({sim}%)")
+
+                                            # Show message snippets
+                                            with st.expander("View messages", expanded=False):
+                                                st.caption(f"**{event['message1']['agent'].upper()}**: {event['message1']['text']}")
+                                                st.caption(f"**{event['message2']['agent'].upper()}**: {event['message2']['text']}")
+                                    else:
+                                        st.info(f"No convergence detected at {int(threshold*100)}% threshold. Try lowering the threshold.")
+
+                                    # Show agent pair stats
+                                    if result.get("agent_pair_counts"):
+                                        st.caption("**Agent connections:** " + ", ".join(
+                                            [f"{k}: {v}" for k, v in result["agent_pair_counts"].items()]
+                                        ))
+                                else:
+                                    st.error(f"Error: {result.get('error')}")
+
+                            except Exception as e:
+                                st.error(f"Convergence detection error: {e}")
+
                     else:
                         st.info("No conversation threads yet")
                 else:
@@ -3381,6 +3546,24 @@ def main():
         layout="wide",
         initial_sidebar_state="expanded"
     )
+
+    # Custom CSS for wider sidebar (allows drag to expand)
+    st.markdown("""
+    <style>
+    /* Allow sidebar to be dragged wider */
+    [data-testid="stSidebar"] {
+        min-width: 300px;
+        max-width: 800px;
+    }
+    [data-testid="stSidebar"] > div:first-child {
+        width: auto;
+    }
+    /* Mermaid diagram container */
+    .stMermaid {
+        overflow-x: auto;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
     # Initialize
     init_session_state()

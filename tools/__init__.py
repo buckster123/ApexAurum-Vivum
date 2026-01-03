@@ -73,6 +73,7 @@ from .vector_search import (
     memory_health_duplicates,
     memory_consolidate,
     memory_migration_run,
+    village_convergence_detect,
     forward_crumbs_get,
     forward_crumb_leave,
     VECTOR_TOOL_SCHEMAS,
@@ -133,6 +134,8 @@ ALL_TOOLS = {
     "memory_health_duplicates": memory_health_duplicates,
     "memory_consolidate": memory_consolidate,
     "memory_migration_run": memory_migration_run,
+    # Village Insights
+    "village_convergence_detect": village_convergence_detect,
     # Forward Crumb Protocol
     "forward_crumbs_get": forward_crumbs_get,
     "forward_crumb_leave": forward_crumb_leave,
@@ -183,6 +186,8 @@ __all__ = [
     "memory_health_duplicates",
     "memory_consolidate",
     "memory_migration_run",
+    # Village Insights
+    "village_convergence_detect",
     # Forward Crumb Protocol
     "forward_crumbs_get",
     "forward_crumb_leave",

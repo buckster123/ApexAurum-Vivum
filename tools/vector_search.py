@@ -1512,6 +1512,32 @@ VECTOR_TOOL_SCHEMAS = {
         }
     },
 
+    "village_convergence_detect": {
+        "name": "village_convergence_detect",
+        "description": (
+            "Detect cross-agent convergence in the village. "
+            "Finds where different agents expressed semantically similar ideas, revealing emergent patterns. "
+            "Returns HARMONY events (2 agents converging) and CONSENSUS events (3+ agents on same topic). "
+            "Use this to discover shared understanding, emergent wisdom, and cultural patterns in the collective."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "similarity_threshold": {
+                    "type": "number",
+                    "description": "Minimum similarity to flag as convergence (0.0-1.0, default 0.85 = 85%)",
+                    "default": 0.85
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum convergence events to return (default: 20)",
+                    "default": 20
+                }
+            },
+            "required": []
+        }
+    },
+
     "forward_crumbs_get": {
         "name": "forward_crumbs_get",
         "description": (
@@ -1799,6 +1825,47 @@ def memory_migration_run(collection: str = "knowledge") -> Dict:
     Migrate existing vectors to enhanced metadata schema.
     """
     return migrate_existing_vectors_to_v2(collection)
+
+
+def village_convergence_detect(
+    similarity_threshold: float = 0.85,
+    limit: int = 20
+) -> Dict:
+    """
+    Detect cross-agent convergence in the village.
+
+    Finds where different agents expressed semantically similar ideas,
+    indicating harmony (2 agents) or consensus (3+ agents).
+
+    Use this to discover emergent patterns and shared understanding
+    across the agent collective.
+
+    Args:
+        similarity_threshold: Minimum similarity to flag (0.0-1.0, default 0.85)
+        limit: Maximum convergence events to return
+
+    Returns:
+        {
+            "success": bool,
+            "convergence_events": [
+                {
+                    "agents": ["agent1", "agent2"],
+                    "similarity": 92.5,  # percentage
+                    "type": "HARMONY" | "CONSENSUS",
+                    "message1": {"agent": str, "text": str, "thread": str},
+                    "message2": {"agent": str, "text": str, "thread": str}
+                }
+            ],
+            "agent_pair_counts": {"agent1↔agent2": count},
+            "consensus_topics": [{"topic": str, "agents": list, "agent_count": int}],
+            "insights": [human-readable insight strings]
+        }
+    """
+    from core.memory_health import detect_village_convergence
+    return detect_village_convergence(
+        similarity_threshold=similarity_threshold,
+        limit=limit
+    )
 
 
 # ============================================================================
