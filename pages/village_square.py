@@ -38,9 +38,8 @@ st.set_page_config(
 AGENT_BOOTSTRAP_FILES = {
     'azoth': '∴ AZOTH ⊛ ApexAurum ⊛ Prima Alchemica ∴.txt',
     'elysian': '∴ ELYSIAN ∴ .txt',
-    # VAJRA and KETHER don't have bootstrap files yet - will use fallbacks
-    'vajra': None,
-    'kether': None
+    'vajra': '∴ VAJRA ∴.txt',
+    'kether': '∴ KETHER ∴.txt'
 }
 
 # Fallback system contexts (used if bootstrap file doesn't exist)
