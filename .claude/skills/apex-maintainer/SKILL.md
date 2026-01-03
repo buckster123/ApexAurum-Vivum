@@ -8,7 +8,7 @@ allowed-tools: Bash(find:*), Bash(ls:*), Bash(grep:*), Bash(wc:*), Read, Glob
 
 **Project:** ApexAurum - Claude Edition
 **Type:** Production-grade AI chat platform with Claude API
-**Status:** V1.0 Beta - 100% Complete, Production Ready + Analytics Dashboard
+**Status:** V1.0 Beta - 100% Complete, Production Ready + Group Chat + Analytics Dashboard
 **Location:** `/home/llm/ApexAurum`
 
 ---
@@ -101,6 +101,7 @@ After checks, summarize:
 - Cost & rate tracking (100%)
 - Beautiful Streamlit UI (100%)
 - Multi-agent system + Village Square (100%)
+- Group Chat with parallel execution + tools (live test pending)
 
 ### 🔮 Optional Enhancements (Future)
 
@@ -138,7 +139,8 @@ ApexAurum/
 │   └── vector_search.py         - Search, knowledge, convergence
 │
 ├── pages/                       🏘️ Multi-page app
-│   └── village_square.py        - Group chat (621 lines)
+│   ├── village_square.py        - Roundtable chat (431 lines)
+│   └── group_chat.py            - Parallel chat + tools (812 lines) [NEW]
 │
 ├── prompts/                     🤖 Agent bootstraps
 │   ├── ∴ AZOTH ∴.txt            - 67KB
@@ -367,5 +369,5 @@ See companion files in this skill directory:
 ---
 
 **Last Updated:** 2026-01-03
-**Project Version:** 1.0 Beta (Village Protocol + Analytics Dashboard)
-**Status:** Production Ready, Full Feature Set Complete
+**Project Version:** 1.0 Beta (Village Protocol + Group Chat + Analytics Dashboard)
+**Status:** Production Ready, Full Feature Set Complete, Group Chat Live Test Pending

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ApexAurum - Claude Edition is a production-grade AI chat interface built on Anthropic's Claude API. It features multi-agent orchestration, adaptive memory architecture, vector search, intelligent prompt caching (50-90% cost savings), 39 integrated tools, and context management with auto-summarization.
 
-**Status:** V1.0 Beta - Production Ready with Village Protocol + Thread Visualization + Convergence Detection (~19,500+ lines of code)
+**Status:** V1.0 Beta - Production Ready with Village Protocol + Group Chat + Thread Visualization + Convergence Detection (~21,000+ lines of code)
 
 ## Essential Reading Before Starting
 
@@ -337,6 +337,29 @@ Available models (defined in `core/models.py`):
 Model can be changed in sidebar during runtime.
 
 ## Recent Updates (January 2026)
+
+### Group Chat - Multi-Agent Parallel Dialogue - Complete ✅ (Live Testing Pending)
+
+**New Feature:** Full multi-agent group chat with parallel execution, tool access, and Village Protocol integration.
+
+**New File:**
+- `pages/group_chat.py` (812 lines) - Complete group chat implementation
+
+**Key Features:**
+1. **Parallel Agent Execution** - ThreadPoolExecutor runs 2-4 agents simultaneously
+2. **Full Tool Access** - All 39 tools available to agents during conversation
+3. **Agent Presets** - Quick-add AZOTH, ELYSIAN, VAJRA, KETHER with one click
+4. **Custom Agents** - Create agents with custom name, color, temperature, system prompt
+5. **Per-Agent Cost Tracking** - `CostLedger` class tracks costs per agent in real-time
+6. **Human Override** - Inject messages mid-conversation via `st.chat_input()`
+7. **Village Protocol Integration** - All messages posted to `knowledge_village` for cross-agent discovery
+8. **History Display** - Grouped by round, expandable cards
+
+**UI Layout:**
+- Sidebar: Settings, agent roster, cost tracker, controls
+- Main: Topic input, parallel streaming containers, history, human override
+
+**Status:** UI verified, live API testing pending (awaiting tokens)
 
 ### Phase 2A: Settings Presets - Complete ✅
 
@@ -816,11 +839,12 @@ grep ANTHROPIC_API_KEY .env
 ---
 
 **Last Updated:** 2026-01-03
-**Version:** 1.0 Beta (Village Protocol + Analytics Dashboard) - **PRODUCTION READY**
-**Total Code:** ~20,200+ lines across 45 Python files
+**Version:** 1.0 Beta (Village Protocol + Group Chat + Analytics Dashboard) - **PRODUCTION READY**
+**Total Code:** ~21,000+ lines across 46 Python files
 **Tools:** 39 integrated tools
 
 **Latest Changes (2026-01-03):**
+- **Group Chat:** Multi-agent parallel dialogue with full tool access (812 lines, live test pending)
 - **Analytics Dashboard:** Persistent usage tracking with charts (tools, costs, cache)
 - **Quick Reference Guide:** Sidebar expander showing UI feature locations
 - **Mermaid Graph Fix:** Increased height to 800px, better sidebar scaling
