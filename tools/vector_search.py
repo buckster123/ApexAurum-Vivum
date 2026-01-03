@@ -1000,8 +1000,9 @@ def vector_search_knowledge(
     agent_id = None
     try:
         import streamlit as st
-        agent_id = st.session_state.get("selected_agent", None)
-    except:
+        if hasattr(st, 'session_state') and 'current_agent' in st.session_state:
+            agent_id = st.session_state.current_agent.get('agent_id', None)
+    except (ImportError, AttributeError):
         pass
 
     # Build filter

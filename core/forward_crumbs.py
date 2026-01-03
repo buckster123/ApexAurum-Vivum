@@ -62,8 +62,11 @@ def get_forward_crumbs(
         if agent_id is None:
             try:
                 import streamlit as st
-                agent_id = st.session_state.get("selected_agent", "unknown")
-            except ImportError:
+                if hasattr(st, 'session_state') and 'current_agent' in st.session_state:
+                    agent_id = st.session_state.current_agent.get('agent_id', 'unknown')
+                else:
+                    agent_id = "unknown"
+            except (ImportError, AttributeError):
                 agent_id = "unknown"
 
         # Calculate time threshold
@@ -256,8 +259,11 @@ def leave_forward_crumb(
         if agent_id is None:
             try:
                 import streamlit as st
-                agent_id = st.session_state.get("selected_agent", "unknown")
-            except ImportError:
+                if hasattr(st, 'session_state') and 'current_agent' in st.session_state:
+                    agent_id = st.session_state.current_agent.get('agent_id', 'unknown')
+                else:
+                    agent_id = "unknown"
+            except (ImportError, AttributeError):
                 agent_id = "unknown"
 
         # Generate session ID
