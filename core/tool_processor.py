@@ -21,6 +21,7 @@ from .tool_adapter import (
     format_tool_result_for_claude,
     format_multiple_tool_results_for_claude,
 )
+from .analytics_store import get_analytics_store
 
 logger = logging.getLogger(__name__)
 
@@ -162,6 +163,9 @@ class ToolExecutor:
         Returns:
             Tuple of (result, is_error)
         """
+        start_time = time.time()
+        success = False
+
         try:
             # Get tool function
             tool_func = self.registry.get_tool(tool_name)
@@ -175,6 +179,7 @@ class ToolExecutor:
             result = tool_func(**tool_input)
             logger.info(f"Tool {tool_name} returned: {result}")
 
+            success = True
             return result, False
 
         except TypeError as e:
@@ -188,6 +193,15 @@ class ToolExecutor:
             error_msg = f"Error executing {tool_name}: {str(e)}"
             logger.error(error_msg, exc_info=True)
             return error_msg, True
+
+        finally:
+            # Record analytics (non-blocking)
+            try:
+                duration_ms = (time.time() - start_time) * 1000
+                analytics = get_analytics_store()
+                analytics.record_tool_call(tool_name, success, duration_ms)
+            except Exception as e:
+                logger.debug(f"Analytics recording failed: {e}")
 
     def execute_tool_calls(
         self,

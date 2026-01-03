@@ -60,6 +60,7 @@ from core.error_messages import get_user_friendly_message, format_error_for_disp
 from core.errors import RetryableError, UserFixableError, FatalError
 from core.context_manager import ContextManager
 from core.conversation_indexer import get_conversation_indexer
+from ui.keyboard_shortcuts import render_cheat_sheet
 
 
 # ============================================================================
@@ -1368,6 +1369,10 @@ def init_session_state():
     if "show_preset_save_dialog" not in st.session_state:
         st.session_state.show_preset_save_dialog = False
 
+    # Analytics Dashboard state
+    if "show_analytics" not in st.session_state:
+        st.session_state.show_analytics = False
+
 
 # ============================================================================
 # UI Components
@@ -1404,6 +1409,10 @@ def render_sidebar():
             value=st.session_state.auto_save_enabled,
             help="Automatically save before switching/clearing"
         )
+
+        # Quick Reference Guide
+        with st.expander("📋 Quick Reference", expanded=False):
+            render_cheat_sheet()
 
         # ========== VILLAGE PROTOCOL: Agent Identity ==========
         st.divider()
@@ -1643,7 +1652,7 @@ Use `vector_search_village()` to discover what others have shared.
                                     from streamlit_mermaid import st_mermaid
                                     # Join without the markdown fence markers (skip first line "```mermaid")
                                     mermaid_code = "\n".join(mermaid_lines[1:])
-                                    st_mermaid(mermaid_code, height=600)
+                                    st_mermaid(mermaid_code, height=800)
                                 except ImportError:
                                     st.warning("Install `streamlit-mermaid` for graph view: `pip install streamlit-mermaid`")
                                     st.code("\n".join(mermaid_lines), language="mermaid")
@@ -1959,6 +1968,11 @@ Use `vector_search_village()` to discover what others have shared.
                     st.metric("🧠 Context", f"{color_icon} {usage_pct:.0f}%", help=f"{context_stats.get('total_tokens', 0):,} tokens used")
                 else:
                     st.metric("🧠 Context", "🟢 0%", help="No messages yet")
+
+            # Analytics Dashboard button
+            if st.button("📊 Analytics Dashboard", use_container_width=True, help="View usage analytics and trends"):
+                st.session_state.show_analytics = True
+                st.rerun()
 
         st.divider()
         # ========== END PHASE 1 POLISH ==========
@@ -3558,9 +3572,16 @@ def main():
     [data-testid="stSidebar"] > div:first-child {
         width: auto;
     }
-    /* Mermaid diagram container */
+    /* Mermaid diagram container - fill available space */
     .stMermaid {
         overflow-x: auto;
+        width: 100% !important;
+        min-height: 600px;
+    }
+    .stMermaid svg {
+        width: 100% !important;
+        height: auto !important;
+        min-height: 600px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -3579,7 +3600,157 @@ def main():
 
     # Main chat interface
     st.title("💬 Apex Aurum - Claude Edition")
-    st.caption("Powered by Claude API with 30 tools + Vision support 👁️")
+    st.caption("Powered by Claude API with 39 tools + Vision support 👁️")
+
+    # ========== ANALYTICS DASHBOARD MODAL ==========
+    if st.session_state.get("show_analytics", False):
+        from core.analytics_store import get_analytics_store
+        import pandas as pd
+
+        st.markdown("### 📊 Analytics Dashboard")
+
+        analytics = get_analytics_store()
+
+        # Time period selector
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            period = st.selectbox(
+                "Time Period",
+                ["Today", "7 Days", "30 Days", "All Time"],
+                key="analytics_period"
+            )
+        with col2:
+            if st.button("Close", key="close_analytics"):
+                st.session_state.show_analytics = False
+                st.rerun()
+
+        # Map period to days
+        period_days = {"Today": 1, "7 Days": 7, "30 Days": 30, "All Time": 365}
+        days = period_days.get(period, 7)
+
+        # Tabs for different metrics
+        tab1, tab2, tab3 = st.tabs(["🛠️ Tool Usage", "💰 Costs", "⚡ Cache"])
+
+        # ===== TOOL USAGE TAB =====
+        with tab1:
+            tool_stats = analytics.get_tool_stats(days)
+
+            if tool_stats["total_calls"] > 0:
+                # Summary metrics
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Total Calls", f"{tool_stats['total_calls']:,}")
+                with col2:
+                    st.metric("Unique Tools", tool_stats["unique_tools"])
+                with col3:
+                    # Average success rate
+                    rates = list(tool_stats["success_rates"].values())
+                    avg_rate = sum(rates) / len(rates) if rates else 0
+                    st.metric("Avg Success", f"{avg_rate*100:.1f}%")
+
+                st.markdown("---")
+
+                # Top tools bar chart
+                st.markdown("#### Top Tools by Usage")
+                if tool_stats["top_10"]:
+                    chart_data = pd.DataFrame(
+                        tool_stats["top_10"],
+                        columns=["Tool", "Calls"]
+                    )
+                    st.bar_chart(chart_data.set_index("Tool"))
+
+                # Success rates table
+                st.markdown("#### Tool Success Rates")
+                if tool_stats["by_tool"]:
+                    rows = []
+                    for tool, calls in tool_stats["by_tool"].items():
+                        rate = tool_stats["success_rates"].get(tool, 0)
+                        errors = tool_stats["errors"].get(tool, 0)
+                        rows.append({
+                            "Tool": tool,
+                            "Calls": calls,
+                            "Success Rate": f"{rate*100:.1f}%",
+                            "Errors": errors
+                        })
+                    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+
+                # Recent tool calls
+                st.markdown("#### Recent Tool Calls")
+                recent = analytics.get_recent_tool_calls(15)
+                if recent:
+                    for call in recent:
+                        status = "✅" if call["success"] else "❌"
+                        duration = call.get("duration_ms", 0)
+                        time_str = call["timestamp"].split("T")[1].split(".")[0] if "T" in call["timestamp"] else ""
+                        st.text(f"{status} {call['tool']} ({duration:.0f}ms) @ {time_str}")
+            else:
+                st.info("No tool usage data yet. Use tools in conversations to see analytics.")
+
+        # ===== COST TAB =====
+        with tab2:
+            cost_stats = analytics.get_cost_stats(days)
+
+            # Summary metrics
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total Spend", f"${cost_stats['total']:.4f}")
+            with col2:
+                st.metric("Daily Average", f"${cost_stats['average_daily']:.4f}")
+            with col3:
+                st.metric("Monthly Projection", f"${cost_stats['projected_monthly']:.2f}")
+
+            st.markdown("---")
+
+            # Daily cost trend
+            if cost_stats["daily"] and any(d["cost"] > 0 for d in cost_stats["daily"]):
+                st.markdown("#### Daily Cost Trend")
+                chart_data = pd.DataFrame(cost_stats["daily"])
+                chart_data["date"] = pd.to_datetime(chart_data["date"])
+                st.line_chart(chart_data.set_index("date")["cost"])
+
+                # Cost by model
+                if cost_stats["by_model"]:
+                    st.markdown("#### Cost by Model")
+                    model_data = pd.DataFrame([
+                        {"Model": k.split("-")[-1] if "-" in k else k, "Cost": v}
+                        for k, v in cost_stats["by_model"].items()
+                    ])
+                    if not model_data.empty:
+                        st.bar_chart(model_data.set_index("Model"))
+            else:
+                st.info("No cost data yet. Make API calls to see cost analytics.")
+
+        # ===== CACHE TAB =====
+        with tab3:
+            cache_stats = analytics.get_cache_stats(days)
+
+            # Summary metrics
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Hit Rate", f"{cache_stats['overall_hit_rate']*100:.1f}%")
+            with col2:
+                st.metric("Total Hits", cache_stats["total_hits"])
+            with col3:
+                st.metric("Total Savings", f"${cache_stats['total_savings']:.4f}")
+
+            st.markdown("---")
+
+            # Hit rate trend
+            if cache_stats["daily"] and any(d["hit_rate"] > 0 for d in cache_stats["daily"]):
+                st.markdown("#### Cache Hit Rate Trend")
+                chart_data = pd.DataFrame(cache_stats["daily"])
+                chart_data["date"] = pd.to_datetime(chart_data["date"])
+                chart_data["hit_rate_pct"] = chart_data["hit_rate"] * 100
+                st.line_chart(chart_data.set_index("date")["hit_rate_pct"])
+            else:
+                st.info("No cache data yet. Enable caching to see performance analytics.")
+
+        st.markdown("---")
+
+        # Overall summary
+        summary = analytics.get_summary()
+        if summary["first_record"]:
+            st.caption(f"📅 Tracking since {summary['first_record']} | {summary['days_tracked']} days with activity | {summary['total_api_calls']} API calls")
 
     # ========== PHASE 2A: Preset Manager Dialog ==========
     if st.session_state.get("show_preset_manager", False):

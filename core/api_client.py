@@ -25,6 +25,7 @@ from .token_counter import count_tokens
 from .cost_tracker import CostTracker
 from .cache_manager import CacheManager, CacheStrategy
 from .cache_tracker import CacheTracker
+from .analytics_store import get_analytics_store
 
 logger = logging.getLogger(__name__)
 
@@ -227,6 +228,32 @@ class ClaudeAPIClient:
                     cache_read_tokens=cache_read_tokens,
                     regular_input_tokens=regular_input_tokens
                 )
+
+                # Record to persistent analytics (non-blocking)
+                try:
+                    analytics = get_analytics_store()
+                    # Calculate this request's cost using cost_tracker's pricing
+                    input_price, output_price = self.cost_tracker.get_model_pricing(model_id)
+                    request_cost = (
+                        (actual_input * input_price / 1_000_000) +
+                        (actual_output * output_price / 1_000_000)
+                    )
+                    analytics.record_api_call(
+                        model=model_id,
+                        input_tokens=actual_input,
+                        output_tokens=actual_output,
+                        cached_tokens=cache_read_tokens,
+                        cost=request_cost
+                    )
+                    # Record cache event
+                    if cache_read_tokens > 0:
+                        # Estimate cache savings (90% of input cost for cached tokens)
+                        cache_savings = (cache_read_tokens * input_price / 1_000_000) * 0.9
+                        analytics.record_cache_event(hit=True, tokens_cached=cache_read_tokens, savings=cache_savings)
+                    else:
+                        analytics.record_cache_event(hit=False)
+                except Exception as e:
+                    logger.debug(f"Analytics recording failed: {e}")
 
                 # Enhanced logging with cache info
                 if cache_creation_tokens > 0 or cache_read_tokens > 0:
