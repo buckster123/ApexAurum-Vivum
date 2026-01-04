@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ApexAurum - Claude Edition is a production-grade AI chat interface built on Anthropic's Claude API. It features multi-agent orchestration, adaptive memory architecture, vector search, intelligent prompt caching (50-90% cost savings), 49 integrated tools, music generation via Suno AI with village memory integration, dataset creation for agent knowledge, and context management with auto-summarization.
+ApexAurum - Claude Edition is a production-grade AI chat interface built on Anthropic's Claude API. It features multi-agent orchestration, adaptive memory architecture, vector search, intelligent prompt caching (50-90% cost savings), 50 integrated tools, music generation via Suno AI with village memory integration, dataset creation for agent knowledge, and context management with auto-summarization.
 
 **Status:** V1.0 Beta - Production Ready with Village Protocol + Group Chat + Music Pipeline Phase 1.5 + Dataset Creator + Thread Visualization (~24,500+ lines of code)
 
@@ -121,7 +121,7 @@ cat .env
 - `conversation_indexer.py` - Conversation search indexing
 - `tool_processor.py` - Tool registry and execution engine
 
-**tools/ (9 modules)** - 49 tool implementations
+**tools/ (9 modules)** - 50 tool implementations
 - `utilities.py` - Time, calculator, web fetch/search, string ops
 - `filesystem.py` - Sandboxed file operations (read/write/list/delete)
 - `memory.py` - Key-value memory storage across conversations
@@ -941,9 +941,12 @@ grep ANTHROPIC_API_KEY .env
 **Last Updated:** 2026-01-04
 **Version:** 1.0 Beta (Village Protocol + Group Chat + Music Pipeline Phase 1.5 + Dataset Creator) - **PRODUCTION READY**
 **Total Code:** ~24,500+ lines across 48 Python files
-**Tools:** 49 integrated tools
+**Tools:** 50 integrated tools
 
 **Latest Changes (2026-01-04):**
+- **Tool #50: `session_info`** - Agents can query their operational context ✅
+  - Datasets available, village stats, agent activity, tools count
+  - Graceful degradation (works from any context)
 - **Dataset Creator:** Vector dataset creation + agent query tools ✅
   - `pages/dataset_creator.py` (390 lines) - Create/manage datasets
   - `tools/datasets.py` (197 lines) - `dataset_list`, `dataset_query` tools

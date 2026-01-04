@@ -22,7 +22,7 @@ When starting a new session or asked about project status, follow these steps:
 ```bash
 cd `/home/llm/ApexAurum`
 
-# Check tool count (should be 49)
+# Check tool count (should be 50)
 python -c "from tools import ALL_TOOLS; print(f'✓ {len(ALL_TOOLS)} tools loaded')" 2>/dev/null || echo "⚠ Tools not loading"
 
 # Check environment
@@ -53,7 +53,7 @@ test -f main.py && wc -l main.py || echo "⚠ main.py missing"
 ### 3. Provide Status Summary
 
 After checks, summarize:
-- Tools count (should be 49)
+- Tools count (should be 50)
 - Environment status
 - What's currently pending (check PROJECT_STATUS.md)
 - Streamlit status
@@ -73,7 +73,7 @@ After checks, summarize:
 - 💰 50-90% cost savings (intelligent prompt caching)
 - 🔍 Semantic search (vector embeddings, ChromaDB)
 - 📖 Knowledge base (persistent memory)
-- 🛠️ 49 tools (filesystem, web, code exec, agents, vector search, music, datasets)
+- 🛠️ 50 tools (filesystem, web, code exec, agents, vector search, music, datasets, session_info)
 - 🧠 Context management (5 strategies, auto-summarization)
 - ⚡ Real-time streaming responses
 
@@ -92,7 +92,7 @@ After checks, summarize:
 ### ✅ What's Complete (100%)
 
 - Core chat system (100%)
-- Tool system with 49 tools (100%)
+- Tool system with 50 tools (100%)
 - Dataset Creator (100%) - PDF+OCR, TXT, MD, DOCX, HTML
 - Music Pipeline Phase 1.5 (100%) - Suno AI + curation tools
 - Prompt caching with 4 strategies (100%)
@@ -354,7 +354,7 @@ ps aux | grep streamlit
 ## Success Indicators
 
 **Everything is healthy when:**
-- ✅ Tool count = 49
+- ✅ Tool count = 50
 - ✅ .env file exists with ANTHROPIC_API_KEY
 - ✅ `python -c "from tools import ALL_TOOLS"` succeeds
 - ✅ main.py exists and is ~5,600+ lines
@@ -362,7 +362,7 @@ ps aux | grep streamlit
 - ✅ Sidebar shows "49 tools available"
 
 **Needs attention when:**
-- ⚠️ Tool count ≠ 49
+- ⚠️ Tool count ≠ 50
 - ⚠️ Import errors
 - ⚠️ Missing .env
 - ⚠️ Streamlit crashes
@@ -380,4 +380,4 @@ See companion files in this skill directory:
 
 **Last Updated:** 2026-01-04
 **Project Version:** 1.0 Beta (Village Protocol + Group Chat + Music Pipeline Phase 1.5 + Dataset Creator)
-**Status:** Production Ready, Dataset Creator Complete, 49 Tools
+**Status:** Production Ready, Dataset Creator + session_info Complete, 50 Tools

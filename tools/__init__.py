@@ -22,6 +22,7 @@ from .utilities import (
     reverse_string,
     count_words,
     random_number,
+    session_info,
     UTILITY_TOOL_SCHEMAS,
 )
 
@@ -126,6 +127,7 @@ ALL_TOOLS = {
     "reverse_string": reverse_string,
     "count_words": count_words,
     "random_number": random_number,
+    "session_info": session_info,
     # Filesystem
     "fs_read_file": fs_read_file,
     "fs_write_file": fs_write_file,
@@ -190,6 +192,7 @@ __all__ = [
     "reverse_string",
     "count_words",
     "random_number",
+    "session_info",
     # Filesystem
     "fs_read_file",
     "fs_write_file",
