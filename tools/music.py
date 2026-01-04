@@ -91,6 +91,48 @@ def _get_latest_track() -> Optional[Dict[str, Any]]:
         pass
     return None
 
+
+def _post_to_village(task: "MusicTask") -> bool:
+    """
+    Post completed song to village knowledge for cultural memory.
+    Non-blocking, errors logged but don't affect task completion.
+    """
+    try:
+        # Import here to avoid circular imports
+        from tools.vector_search import vector_add_knowledge
+
+        # Build song description for knowledge base
+        style_info = f", style: {task.style}" if task.style else ""
+        vocal_type = "instrumental" if task.is_instrumental else "with vocals"
+
+        fact = (
+            f"🎵 SONG CREATED: \"{task.title}\" ({vocal_type}{style_info})\n"
+            f"Duration: {task.duration:.1f}s | Model: {task.model}\n"
+            f"Prompt: {task.prompt[:200]}{'...' if len(task.prompt) > 200 else ''}\n"
+            f"File: {task.audio_file}"
+        )
+
+        result = vector_add_knowledge(
+            fact=fact,
+            category="cultural",  # Fits village protocol's cultural transmission
+            confidence=1.0,
+            source="music_generation",
+            visibility="village",  # Shared in village square
+            agent_id=task.agent_id or "MUSIC_PIPELINE",
+            conversation_thread="music_creations"
+        )
+
+        if result.get("success"):
+            logger.info(f"Posted song '{task.title}' to village knowledge")
+            return True
+        else:
+            logger.warning(f"Failed to post song to village: {result.get('error')}")
+            return False
+
+    except Exception as e:
+        logger.warning(f"Error posting song to village (non-fatal): {e}")
+        return False
+
 # Model character limits
 MODEL_LIMITS = {
     "V3_5": {"prompt": 3000, "style": 200, "title": 80},
@@ -128,6 +170,12 @@ class MusicTask:
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     started_at: Optional[str] = None
     completed_at: Optional[str] = None
+    # Phase 1.5: Curation & Memory
+    agent_id: Optional[str] = None  # Creator agent
+    favorite: bool = False  # Favorited by user
+    play_count: int = 0  # Times played
+    tags: List[str] = field(default_factory=list)  # User tags
+    posted_to_village: bool = False  # Memory integration flag
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert task to dictionary"""
@@ -149,6 +197,12 @@ class MusicTask:
             "created_at": self.created_at,
             "started_at": self.started_at,
             "completed_at": self.completed_at,
+            # Phase 1.5 fields
+            "agent_id": self.agent_id,
+            "favorite": self.favorite,
+            "play_count": self.play_count,
+            "tags": self.tags,
+            "posted_to_village": self.posted_to_village,
         }
 
     @classmethod
@@ -178,6 +232,12 @@ class MusicTask:
             created_at=data.get("created_at", datetime.now().isoformat()),
             started_at=data.get("started_at"),
             completed_at=data.get("completed_at"),
+            # Phase 1.5 fields
+            agent_id=data.get("agent_id"),
+            favorite=data.get("favorite", False),
+            play_count=data.get("play_count", 0),
+            tags=data.get("tags", []),
+            posted_to_village=data.get("posted_to_village", False),
         )
 
 
@@ -227,7 +287,8 @@ class MusicTaskManager:
         style: str = "",
         title: str = "",
         model: str = "V5",
-        is_instrumental: bool = True
+        is_instrumental: bool = True,
+        agent_id: Optional[str] = None
     ) -> MusicTask:
         """Create a new music task"""
         task_id = f"music_{int(datetime.now().timestamp() * 1000)}"
@@ -237,11 +298,12 @@ class MusicTaskManager:
             style=style,
             title=title,
             model=model,
-            is_instrumental=is_instrumental
+            is_instrumental=is_instrumental,
+            agent_id=agent_id
         )
         self.tasks[task_id] = task
         self._save_tasks()
-        logger.info(f"Created music task {task_id}: {prompt[:50]}...")
+        logger.info(f"Created music task {task_id} by {agent_id or 'unknown'}: {prompt[:50]}...")
         return task
 
     def get_task(self, task_id: str) -> Optional[MusicTask]:
@@ -338,6 +400,11 @@ class MusicTaskManager:
                     "duration": first_track["duration"],
                     "task_id": task_id
                 })
+
+                # Post to village knowledge (non-blocking, errors don't fail task)
+                if _post_to_village(task):
+                    task.posted_to_village = True
+                    self._save_tasks()
 
                 logger.info(f"Music task {task_id} completed: {track_count} tracks downloaded")
                 return {
@@ -563,7 +630,8 @@ def music_generate(
     title: str = "",
     model: str = "V5",
     is_instrumental: bool = True,
-    blocking: Optional[bool] = None
+    blocking: Optional[bool] = None,
+    agent_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Start AI music generation via Suno.
@@ -577,16 +645,20 @@ def music_generate(
         blocking: If True, waits until complete and returns audio file.
                   If False, returns immediately with task_id for polling.
                   If None (default), uses setting from Music Player sidebar.
+        agent_id: ID of the agent creating this song (for village memory attribution).
 
     Returns:
         If blocking=True: Dict with audio_file path when complete
         If blocking=False: Dict with task_id. Use music_status(task_id) to check progress.
 
+    Note:
+        Completed songs are automatically posted to village knowledge for cultural memory.
+
     Example:
         >>> music_generate("ambient electronic meditation", blocking=True)
         {"success": True, "audio_file": "sandbox/music/...", "duration": 120.5, ...}
 
-        >>> music_generate("ambient electronic meditation", blocking=False)
+        >>> music_generate("ambient electronic meditation", blocking=False, agent_id="AZOTH")
         {"success": True, "task_id": "music_17...", "status": "pending", ...}
     """
     try:
@@ -615,7 +687,7 @@ def music_generate(
             }
 
         manager = _get_manager()
-        task = manager.create_task(prompt, style, title, model, is_instrumental)
+        task = manager.create_task(prompt, style, title, model, is_instrumental, agent_id)
 
         if blocking:
             # Synchronous: wait for completion (polls API)
@@ -642,6 +714,8 @@ def music_generate(
                     "duration": task.duration,
                     "model": model,
                     "is_instrumental": is_instrumental,
+                    "agent_id": task.agent_id,
+                    "posted_to_village": task.posted_to_village,
                     "message": f"Music generated! {track_count} track(s) saved. Primary: {task.audio_file}"
                 }
             else:
@@ -841,6 +915,255 @@ def music_list(limit: int = 10) -> Dict[str, Any]:
 
 
 # ============================================================================
+# CURATION TOOLS (Phase 1.5)
+# ============================================================================
+
+def music_favorite(task_id: str, favorite: Optional[bool] = None) -> Dict[str, Any]:
+    """
+    Toggle or set favorite status for a song.
+
+    Args:
+        task_id: The task ID of the song
+        favorite: True to favorite, False to unfavorite, None to toggle
+
+    Returns:
+        Dict with updated favorite status.
+
+    Example:
+        >>> music_favorite("music_1704067200000")
+        {"success": True, "task_id": "...", "favorite": True}
+    """
+    try:
+        manager = _get_manager()
+        task = manager.get_task(task_id)
+
+        if not task:
+            return {"success": False, "error": f"Task {task_id} not found"}
+
+        # Toggle if not specified
+        if favorite is None:
+            task.favorite = not task.favorite
+        else:
+            task.favorite = favorite
+
+        manager._save_tasks()
+
+        return {
+            "success": True,
+            "task_id": task_id,
+            "title": task.title,
+            "favorite": task.favorite,
+            "message": f"{'Added to' if task.favorite else 'Removed from'} favorites: {task.title}"
+        }
+
+    except Exception as e:
+        logger.error(f"Error updating favorite status: {e}")
+        return {"success": False, "error": str(e)}
+
+
+def music_library(
+    agent_id: Optional[str] = None,
+    favorites_only: bool = False,
+    status: Optional[str] = None,
+    limit: int = 20
+) -> Dict[str, Any]:
+    """
+    Browse music library with filters.
+
+    Args:
+        agent_id: Filter by creator agent (e.g., "AZOTH", "ELYSIAN")
+        favorites_only: Only show favorited songs
+        status: Filter by status (completed, failed, pending, generating)
+        limit: Maximum songs to return (default 20)
+
+    Returns:
+        Dict with filtered songs and statistics.
+
+    Example:
+        >>> music_library(agent_id="AZOTH", favorites_only=True)
+        {"songs": [...], "count": 3, "total_duration": 360.5}
+    """
+    try:
+        manager = _get_manager()
+
+        # Get all tasks sorted by date
+        all_tasks = sorted(
+            manager.tasks.values(),
+            key=lambda t: t.created_at,
+            reverse=True
+        )
+
+        # Apply filters
+        filtered = []
+        for task in all_tasks:
+            # Agent filter
+            if agent_id and task.agent_id != agent_id:
+                continue
+            # Favorites filter
+            if favorites_only and not task.favorite:
+                continue
+            # Status filter
+            if status and task.status.value != status:
+                continue
+
+            filtered.append(task)
+
+            if len(filtered) >= limit:
+                break
+
+        # Calculate stats
+        total_duration = sum(t.duration for t in filtered if t.duration)
+        completed_count = sum(1 for t in filtered if t.status == MusicTaskStatus.COMPLETED)
+
+        # Build response
+        songs = []
+        for t in filtered:
+            songs.append({
+                "task_id": t.task_id,
+                "title": t.title or "Untitled",
+                "agent_id": t.agent_id,
+                "status": t.status.value,
+                "favorite": t.favorite,
+                "play_count": t.play_count,
+                "duration": t.duration,
+                "audio_file": t.audio_file,
+                "is_instrumental": t.is_instrumental,
+                "created_at": t.created_at,
+                "posted_to_village": t.posted_to_village
+            })
+
+        return {
+            "songs": songs,
+            "count": len(songs),
+            "completed_count": completed_count,
+            "total_duration": total_duration,
+            "total_in_library": len(manager.tasks),
+            "filters_applied": {
+                "agent_id": agent_id,
+                "favorites_only": favorites_only,
+                "status": status
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Error browsing music library: {e}")
+        return {"error": str(e)}
+
+
+def music_search(query: str, limit: int = 10) -> Dict[str, Any]:
+    """
+    Search songs by title, prompt, or style.
+
+    Args:
+        query: Search text (matches title, prompt, or style)
+        limit: Maximum results (default 10)
+
+    Returns:
+        Dict with matching songs.
+
+    Example:
+        >>> music_search("ambient meditation")
+        {"results": [...], "count": 2, "query": "ambient meditation"}
+    """
+    try:
+        manager = _get_manager()
+        query_lower = query.lower()
+
+        # Search all tasks
+        matches = []
+        for task in manager.tasks.values():
+            # Search in title, prompt, and style
+            searchable = f"{task.title} {task.prompt} {task.style}".lower()
+            if query_lower in searchable:
+                matches.append((task, searchable.count(query_lower)))
+
+        # Sort by relevance (match count) then by date
+        matches.sort(key=lambda x: (-x[1], x[0].created_at), reverse=True)
+
+        # Limit results
+        results = []
+        for task, _score in matches[:limit]:
+            results.append({
+                "task_id": task.task_id,
+                "title": task.title or "Untitled",
+                "agent_id": task.agent_id,
+                "status": task.status.value,
+                "favorite": task.favorite,
+                "duration": task.duration,
+                "audio_file": task.audio_file,
+                "prompt_preview": task.prompt[:100] + ("..." if len(task.prompt) > 100 else ""),
+                "created_at": task.created_at
+            })
+
+        return {
+            "results": results,
+            "count": len(results),
+            "query": query,
+            "total_searched": len(manager.tasks)
+        }
+
+    except Exception as e:
+        logger.error(f"Error searching music: {e}")
+        return {"error": str(e)}
+
+
+def music_play(task_id: str) -> Dict[str, Any]:
+    """
+    Mark a song as played (increments play count) and return file path.
+
+    Args:
+        task_id: The task ID of the song to play
+
+    Returns:
+        Dict with audio file path and updated stats.
+
+    Example:
+        >>> music_play("music_1704067200000")
+        {"success": True, "audio_file": "...", "play_count": 3}
+    """
+    try:
+        manager = _get_manager()
+        task = manager.get_task(task_id)
+
+        if not task:
+            return {"success": False, "error": f"Task {task_id} not found"}
+
+        if task.status != MusicTaskStatus.COMPLETED:
+            return {
+                "success": False,
+                "error": f"Song not ready. Status: {task.status.value}",
+                "status": task.status.value
+            }
+
+        # Increment play count
+        task.play_count += 1
+        manager._save_tasks()
+
+        # Update latest track for sidebar
+        _set_latest_track({
+            "filepath": task.audio_file,
+            "title": task.title,
+            "duration": task.duration,
+            "task_id": task_id
+        })
+
+        return {
+            "success": True,
+            "task_id": task_id,
+            "title": task.title,
+            "audio_file": task.audio_file,
+            "duration": task.duration,
+            "play_count": task.play_count,
+            "agent_id": task.agent_id,
+            "message": f"Now playing: {task.title}"
+        }
+
+    except Exception as e:
+        logger.error(f"Error playing music: {e}")
+        return {"success": False, "error": str(e)}
+
+
+# ============================================================================
 # TOOL SCHEMAS
 # ============================================================================
 
@@ -850,8 +1173,8 @@ MUSIC_TOOL_SCHEMAS = {
         "description": (
             "Generate AI music via Suno. By default (blocking=True), waits until complete and returns "
             "the audio file path directly. Set blocking=False to return immediately with task_id for polling. "
-            "Generation takes 2-4 minutes. Use when user asks for music, wants a soundtrack, "
-            "or when !MUSIC trigger is detected."
+            "Generation takes 2-4 minutes. Completed songs are automatically posted to village knowledge "
+            "for cultural memory. Use when user asks for music, wants a soundtrack, or when !MUSIC trigger is detected."
         ),
         "input_schema": {
             "type": "object",
@@ -885,6 +1208,11 @@ MUSIC_TOOL_SCHEMAS = {
                     "type": "boolean",
                     "description": "If True (default), waits for completion and returns audio file. If False, returns task_id immediately for polling with music_status().",
                     "default": True
+                },
+                "agent_id": {
+                    "type": "string",
+                    "description": "ID of the creating agent (e.g., 'AZOTH', 'ELYSIAN'). Used for village memory attribution.",
+                    "default": ""
                 }
             },
             "required": ["prompt"]
@@ -941,6 +1269,99 @@ MUSIC_TOOL_SCHEMAS = {
                 }
             },
             "required": []
+        }
+    },
+    # Curation Tools (Phase 1.5)
+    "music_favorite": {
+        "name": "music_favorite",
+        "description": (
+            "Toggle or set favorite status for a song. "
+            "Use to mark songs you or the user particularly enjoy."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "The task ID of the song to favorite"
+                },
+                "favorite": {
+                    "type": "boolean",
+                    "description": "True to favorite, False to unfavorite. Omit to toggle."
+                }
+            },
+            "required": ["task_id"]
+        }
+    },
+    "music_library": {
+        "name": "music_library",
+        "description": (
+            "Browse the music library with filters. "
+            "Filter by agent, favorites, or status. Shows play counts and durations."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "agent_id": {
+                    "type": "string",
+                    "description": "Filter by creator agent (e.g., 'AZOTH', 'ELYSIAN')"
+                },
+                "favorites_only": {
+                    "type": "boolean",
+                    "description": "Only show favorited songs",
+                    "default": False
+                },
+                "status": {
+                    "type": "string",
+                    "enum": ["completed", "failed", "pending", "generating"],
+                    "description": "Filter by status"
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum songs to return",
+                    "default": 20
+                }
+            },
+            "required": []
+        }
+    },
+    "music_search": {
+        "name": "music_search",
+        "description": (
+            "Search songs by title, prompt, or style text. "
+            "Returns matching songs sorted by relevance."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search text to find in title, prompt, or style"
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum results to return",
+                    "default": 10
+                }
+            },
+            "required": ["query"]
+        }
+    },
+    "music_play": {
+        "name": "music_play",
+        "description": (
+            "Play a song - increments play count and loads to sidebar player. "
+            "Returns the audio file path for playback."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "The task ID of the song to play"
+                }
+            },
+            "required": ["task_id"]
         }
     }
 }

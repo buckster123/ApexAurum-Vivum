@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ApexAurum - Claude Edition is a production-grade AI chat interface built on Anthropic's Claude API. It features multi-agent orchestration, adaptive memory architecture, vector search, intelligent prompt caching (50-90% cost savings), 43 integrated tools, music generation via Suno AI, and context management with auto-summarization.
+ApexAurum - Claude Edition is a production-grade AI chat interface built on Anthropic's Claude API. It features multi-agent orchestration, adaptive memory architecture, vector search, intelligent prompt caching (50-90% cost savings), 47 integrated tools, music generation via Suno AI with village memory integration, and context management with auto-summarization.
 
-**Status:** V1.0 Beta - Production Ready with Village Protocol + Group Chat + Music Pipeline + Thread Visualization (~23,000+ lines of code)
+**Status:** V1.0 Beta - Production Ready with Village Protocol + Group Chat + Music Pipeline Phase 1.5 + Thread Visualization (~24,000+ lines of code)
 
 ## Essential Reading Before Starting
 
@@ -35,7 +35,7 @@ Access at: http://localhost:8501
 ### Testing
 
 ```bash
-# Verify tool count (should be 43)
+# Verify tool count (should be 47)
 python -c "from tools import ALL_TOOLS; print(f'{len(ALL_TOOLS)} tools loaded')"
 
 # Test agent functionality
@@ -341,25 +341,36 @@ Model can be changed in sidebar during runtime.
 
 ## Recent Updates (January 2026)
 
-### Music Pipeline - Phase 1 Complete ✅
+### Music Pipeline - Phase 1.5 Complete ✅
 
-**New Feature:** AI music generation via Suno API with non-blocking execution and sidebar player.
+**Feature:** AI music generation via Suno API with village memory integration and curation tools.
 
-**New File:**
-- `tools/music.py` (946 lines) - Complete music generation pipeline
+**File:**
+- `tools/music.py` (1367 lines) - Complete music generation + curation pipeline
 
-**New Tools (4):**
-1. `music_generate(prompt, style, title, model, is_instrumental, blocking)` - Generate music via Suno
+**Music Tools (8):**
+
+*Core Generation:*
+1. `music_generate(prompt, style, title, model, is_instrumental, blocking, agent_id)` - Generate music via Suno
 2. `music_status(task_id)` - Check generation progress
 3. `music_result(task_id)` - Get completed audio file
 4. `music_list(limit)` - List recent music tasks
 
+*Curation (Phase 1.5):*
+5. `music_favorite(task_id, favorite)` - Toggle/set favorite status
+6. `music_library(agent_id, favorites_only, status, limit)` - Browse with filters
+7. `music_search(query, limit)` - Search by title/prompt/style
+8. `music_play(task_id)` - Play song, increment play count, load to sidebar
+
 **Key Features:**
 1. **Blocking/Non-Blocking Mode** - Configurable via sidebar checkbox
 2. **Multi-Track Download** - Suno returns 2 tracks, both are saved (`_v1_`, `_v2_`)
-3. **Sidebar Audio Player** - Auto-loads completed tracks, play/refresh/clear controls
-4. **Persistent Task Storage** - Tasks saved to `sandbox/music_tasks.json`
-5. **Auto-Save** - MP3s saved to `sandbox/music/` with sanitized filenames
+3. **Village Memory Integration** - Completed songs auto-posted to `knowledge_village`
+4. **Agent Attribution** - Songs track creator agent (e.g., "by AZOTH")
+5. **Favorites & Play Count** - Track popularity and user preferences
+6. **Enhanced Sidebar Player** - Shows favorites (⭐), agent, play count, toggle favorite button
+7. **Library Browser** - Filter by agent, favorites, status
+8. **Persistent Task Storage** - Tasks saved to `sandbox/music_tasks.json`
 
 **Configuration:**
 - Requires `SUNO_API_KEY` in `.env` (from sunoapi.org)
@@ -381,7 +392,7 @@ Model can be changed in sidebar during runtime.
 
 **Key Features:**
 1. **Parallel Agent Execution** - ThreadPoolExecutor runs 1-4 agents simultaneously
-2. **Full Tool Access** - All 43 tools available to agents during conversation
+2. **Full Tool Access** - All 47 tools available to agents during conversation
 3. **Agent Presets** - Quick-add AZOTH, ELYSIAN, VAJRA, KETHER with one click
 4. **Custom Agents** - Create agents with custom name, color, temperature, system prompt
 5. **Per-Agent Cost Tracking** - `CostLedger` class tracks costs per agent in real-time
@@ -874,17 +885,18 @@ grep ANTHROPIC_API_KEY .env
 
 ---
 
-**Last Updated:** 2026-01-03
-**Version:** 1.0 Beta (Village Protocol + Group Chat + Music Pipeline) - **PRODUCTION READY**
-**Total Code:** ~23,000+ lines across 47 Python files
-**Tools:** 43 integrated tools
+**Last Updated:** 2026-01-04
+**Version:** 1.0 Beta (Village Protocol + Group Chat + Music Pipeline Phase 1.5) - **PRODUCTION READY**
+**Total Code:** ~24,000+ lines across 47 Python files
+**Tools:** 47 integrated tools
 
-**Latest Changes (2026-01-03):**
-- **Music Pipeline Phase 1:** Suno AI music generation with 4 new tools (946 lines) ✅
-- **Sidebar Audio Player:** Auto-loads tracks, blocking/non-blocking mode toggle
-- **Multi-Track Download:** Both Suno variations saved to disk
-- **Group Chat:** Multi-agent parallel dialogue with full tool access (1011 lines) ✅
-- **Analytics Dashboard:** Persistent usage tracking with charts (tools, costs, cache)
+**Latest Changes (2026-01-04):**
+- **Music Pipeline Phase 1.5:** Village memory integration + 4 new curation tools (1367 lines total) ✅
+  - `music_favorite`, `music_library`, `music_search`, `music_play`
+  - Completed songs auto-posted to village knowledge
+  - Agent attribution, play counts, favorites
+  - Enhanced sidebar player with curation controls
+- **Previous (2026-01-03):** Music Phase 1, Group Chat, Analytics Dashboard
 
 **Previous Changes:**
 - **Village Protocol v1.0:** Multi-agent memory across 3 realms

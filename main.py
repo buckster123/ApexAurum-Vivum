@@ -1444,20 +1444,48 @@ def render_sidebar():
         with st.expander("🎵 Music Player", expanded=st.session_state.music_player_expanded):
             if st.session_state.music_current_track:
                 track = st.session_state.music_current_track
+                task_id = track.get('task_id')
                 filepath = track.get('filepath') or track.get('audio_file')
                 title = track.get('title', 'Unknown Track')
                 duration = track.get('duration', 0)
 
+                # Get full task info for favorite/agent status
+                task_info = None
+                try:
+                    from tools.music import _get_manager
+                    manager = _get_manager()
+                    task_info = manager.get_task(task_id) if task_id else None
+                except Exception:
+                    pass
+
                 if filepath and Path(filepath).exists():
                     st.audio(filepath, format="audio/mpeg")
-                    st.caption(f"**{title}** ({duration:.1f}s)")
 
-                    col1, col2 = st.columns(2)
+                    # Title with favorite star
+                    fav_star = "⭐ " if (task_info and task_info.favorite) else ""
+                    agent_badge = f" • by {task_info.agent_id}" if (task_info and task_info.agent_id) else ""
+                    st.caption(f"**{fav_star}{title}** ({duration:.1f}s){agent_badge}")
+
+                    # Play count
+                    if task_info and task_info.play_count > 0:
+                        st.caption(f"🎧 Played {task_info.play_count}x")
+
+                    col1, col2, col3 = st.columns(3)
                     with col1:
-                        if st.button("🔄 Refresh", key="music_refresh", use_container_width=True):
+                        if st.button("🔄", key="music_refresh", help="Refresh", use_container_width=True):
                             st.rerun()
                     with col2:
-                        if st.button("✖️ Clear", key="music_clear", use_container_width=True):
+                        # Toggle favorite
+                        fav_icon = "★" if (task_info and task_info.favorite) else "☆"
+                        if st.button(fav_icon, key="music_fav", help="Toggle favorite", use_container_width=True):
+                            try:
+                                from tools.music import music_favorite
+                                music_favorite(task_id)
+                                st.rerun()
+                            except Exception:
+                                pass
+                    with col3:
+                        if st.button("✖️", key="music_clear", help="Clear", use_container_width=True):
                             st.session_state.music_current_track = None
                             st.rerun()
                 else:
@@ -1467,27 +1495,31 @@ def render_sidebar():
                         st.rerun()
             else:
                 st.caption("No track loaded")
-                st.markdown("""
-*Generate music with:*
-- `music_generate("prompt")`
-- Or ask the agent to create music
-""")
+                st.markdown("*Ask agent to create music*")
 
-                # Show recent tracks for quick load
+                # Show recent tracks with favorites indicator
                 try:
                     from tools.music import _get_manager
                     manager = _get_manager()
-                    recent = manager.list_tasks(3)
+                    recent = manager.list_tasks(5)
                     completed = [t for t in recent if t.status.value == "completed" and t.audio_file]
 
                     if completed:
-                        st.markdown("**Recent:**")
-                        for task in completed[:3]:
-                            col1, col2 = st.columns([3, 1])
+                        st.markdown("**Library:**")
+                        for task in completed[:4]:
+                            fav = "⭐" if task.favorite else "🎵"
+                            agent = f" ({task.agent_id})" if task.agent_id else ""
+                            col1, col2 = st.columns([4, 1])
                             with col1:
-                                st.caption(f"🎵 {task.title or 'Untitled'}")
+                                st.caption(f"{fav} {task.title or 'Untitled'}{agent}")
                             with col2:
-                                if st.button("▶️", key=f"play_{task.task_id}", help="Load track"):
+                                if st.button("▶️", key=f"play_{task.task_id}", help="Play"):
+                                    # Use music_play to increment play count
+                                    try:
+                                        from tools.music import music_play
+                                        music_play(task.task_id)
+                                    except Exception:
+                                        pass
                                     st.session_state.music_current_track = {
                                         'filepath': task.audio_file,
                                         'title': task.title,

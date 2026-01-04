@@ -85,6 +85,11 @@ from .music import (
     music_status,
     music_result,
     music_list,
+    # Curation tools (Phase 1.5)
+    music_favorite,
+    music_library,
+    music_search,
+    music_play,
     MUSIC_TOOL_SCHEMAS,
 )
 
@@ -154,6 +159,11 @@ ALL_TOOLS = {
     "music_status": music_status,
     "music_result": music_result,
     "music_list": music_list,
+    # Music Curation (Phase 1.5)
+    "music_favorite": music_favorite,
+    "music_library": music_library,
+    "music_search": music_search,
+    "music_play": music_play,
 }
 
 __all__ = [
@@ -211,6 +221,11 @@ __all__ = [
     "music_status",
     "music_result",
     "music_list",
+    # Music Curation (Phase 1.5)
+    "music_favorite",
+    "music_library",
+    "music_search",
+    "music_play",
     # Schemas
     "UTILITY_TOOL_SCHEMAS",
     "FILESYSTEM_TOOL_SCHEMAS",
