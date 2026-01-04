@@ -3639,6 +3639,22 @@ def process_message(user_message: str, uploaded_images: Optional[List] = None):
                 # Note: Auto-save handles persistence via auto_save_current_conversation()
                 # Removed per-message saves that were creating duplicate conversation entries
 
+                # Check if music_play was called - refresh player if needed
+                try:
+                    from tools.music import _get_latest_track
+                    latest = _get_latest_track()
+                    if latest:
+                        latest_ts = latest.get('timestamp')
+                        current_ts = st.session_state.get('music_last_loaded_ts')
+                        # If there's a newer track, update state and rerun to show player
+                        if latest_ts and latest_ts != current_ts:
+                            st.session_state.music_current_track = latest
+                            st.session_state.music_last_loaded_ts = latest_ts
+                            st.session_state.music_player_expanded = True
+                            st.rerun()  # Refresh to show updated player
+                except Exception:
+                    pass  # Non-critical, don't break chat flow
+
             else:
                 error_msg = "I apologize, but I couldn't generate a response."
                 st.error(error_msg)
