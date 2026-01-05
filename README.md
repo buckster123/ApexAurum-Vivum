@@ -4,11 +4,11 @@
 
 ### *The Philosopher's Stone of AI Interfaces*
 
-**A Claude platform with multi-agent orchestration, persistent memory architecture, and 50 integrated tools**
+**A Claude platform with multi-agent orchestration, persistent memory architecture, and 52 integrated tools**
 
 [![Status](https://img.shields.io/badge/status-production%20ready-gold?style=for-the-badge)]()
-[![Tools](https://img.shields.io/badge/tools-50-blueviolet?style=for-the-badge)]()
-[![Code](https://img.shields.io/badge/lines-24.5k+-blue?style=for-the-badge)]()
+[![Tools](https://img.shields.io/badge/tools-52-blueviolet?style=for-the-badge)]()
+[![Code](https://img.shields.io/badge/lines-24.7k+-blue?style=for-the-badge)]()
 [![Python](https://img.shields.io/badge/python-3.9+-green?style=for-the-badge)]()
 [![License](https://img.shields.io/badge/license-MIT-brightgreen?style=for-the-badge)]()
 
@@ -60,14 +60,14 @@ Three-realm memory architecture:
 - **Village** — Shared community memory
 - **Bridges** — Cross-agent connections
 
-### 50 Integrated Tools
-File ops, web search, code execution, vector search, music generation, dataset queries, memory health, convergence detection...
+### 52 Integrated Tools
+File ops, web search, code execution, vector search, MIDI composition, music generation, dataset queries, memory health, convergence detection...
 
 </td>
 <td width="50%" valign="top">
 
 ### Music Generation
-Generate music via Suno AI directly from chat. Sidebar player, favorites, play counts, library search. Village memory integration.
+Compose MIDI melodies and generate music via Suno AI. Phase 2A pipeline: agents compose → MIDI → Suno → full tracks. Sidebar player, favorites, library search.
 
 ### Dataset Creator
 Turn PDFs, docs, and text into searchable vector datasets. OCR support for scanned documents. Agents query these semantically.
@@ -92,12 +92,12 @@ flowchart TB
         DC["Dataset Creator<br/>Vector Datasets"]
     end
 
-    subgraph TOOLS["Tool Layer — 50 Tools"]
+    subgraph TOOLS["Tool Layer — 52 Tools"]
         UT["Utilities<br/>time, calc, web, session_info"]
         FS["Filesystem<br/>read, write, list, delete"]
         AG["Agents<br/>spawn, status, council"]
         VS_T["Vector Search<br/>semantic, knowledge, village"]
-        MU["Music<br/>generate, library, play"]
+        MU["Music<br/>midi_create, compose, generate, play"]
         DS["Datasets<br/>list, query"]
         MH["Memory Health<br/>stale, duplicates, consolidate"]
     end
@@ -199,7 +199,7 @@ Open **http://localhost:8501** and start chatting.
 
 ## Tool Ecosystem
 
-### 50 Tools Across 9 Categories
+### 52 Tools Across 9 Categories
 
 | Category | Tools | Description |
 |----------|-------|-------------|
@@ -210,7 +210,7 @@ Open **http://localhost:8501** and start chatting.
 | **Agents** | `agent_spawn`, `agent_status`, `agent_result`, `agent_list`, `socratic_council` | Multi-agent orchestration |
 | **Vector** | `vector_add`, `vector_search`, `vector_delete`, `vector_list_collections`, `vector_get_stats`, `vector_add_knowledge`, `vector_search_knowledge`, `vector_search_village`, `village_convergence_detect`, `forward_crumbs_get`, `forward_crumb_leave` | Semantic search + Village Protocol |
 | **Memory Health** | `memory_health_stale`, `memory_health_low_access`, `memory_health_duplicates`, `memory_consolidate`, `memory_migration_run` | Adaptive memory architecture |
-| **Music** | `music_generate`, `music_status`, `music_result`, `music_list`, `music_favorite`, `music_library`, `music_search`, `music_play` | Suno AI integration + curation |
+| **Music** | `midi_create`, `music_compose`, `music_generate`, `music_status`, `music_result`, `music_list`, `music_favorite`, `music_library`, `music_search`, `music_play` | MIDI composition + Suno AI |
 | **Datasets** | `dataset_list`, `dataset_query` | Vector dataset access |
 
 ---
@@ -235,7 +235,7 @@ Open **http://localhost:8501** and start chatting.
 ```
 
 - **Parallel Execution** — 1-4 agents respond simultaneously
-- **Full Tool Access** — All 50 tools available during dialogue
+- **Full Tool Access** — All 52 tools available during dialogue
 - **Per-Agent Cost Tracking** — Real-time cost ledger
 - **Village Integration** — All messages posted to shared memory
 
@@ -255,21 +255,31 @@ dataset_query("python_docs", "how to handle exceptions", top_k=5)
 
 **Supported formats:** PDF (with OCR), TXT, MD, DOCX, HTML
 
-### Music Pipeline
+### Music Pipeline (Phase 2A)
 
 ```python
-# Generate music from prompt
+# Compose your own MIDI
+midi_create(
+    notes=['C4', 'E4', 'G4', 'C5'],
+    tempo=100,
+    title="my_melody"
+)
+# → {"midi_file": "sandbox/midi/my_melody_xxx.mid"}
+
+# Generate music from your composition
+music_compose(
+    midi_file="sandbox/midi/my_melody_xxx.mid",
+    style="ambient electronic",
+    title="My Song",
+    audio_influence=0.5  # How much Suno follows your MIDI
+)
+
+# Or generate directly from prompt
 music_generate(
     prompt="An epic orchestral piece about coding at midnight",
     style="cinematic orchestral",
     title="Midnight Compile"
 )
-
-# Browse your library
-music_library(favorites_only=True)
-
-# Play in sidebar
-music_play(task_id="music_abc123")
 ```
 
 ---
@@ -309,13 +319,13 @@ Aggressive      │ + History (3+ turns back)      │ 70-90%
 ╔════════════════════════════════════════════════════════════╗
 ║                    APEXAURUM METRICS                       ║
 ╠════════════════════════════════════════════════════════════╣
-║  Total Code          │  ~24,500 lines                      ║
+║  Total Code          │  ~24,700 lines                      ║
 ║  Main Application    │  5,643 lines (main.py)              ║
 ║  Core Modules        │  27 files (~11,000 lines)           ║
-║  Tool Modules        │  9 files (~3,700 lines)             ║
+║  Tool Modules        │  9 files (~3,900 lines)             ║
 ║  UI Modules          │  3 files                            ║
 ║  ──────────────────────────────────────────────────────── ║
-║  Tools Available     │  50                                 ║
+║  Tools Available     │  52                                 ║
 ║  Agent Presets       │  4 (AZOTH, ELYSIAN, VAJRA, KETHER) ║
 ║  Test Suites         │  14                                 ║
 ║  Documentation Files │  45+                                ║
@@ -400,11 +410,11 @@ timeline
 
     section Village
         2026 : Village Protocol
-             : Music Pipeline
+             : Music Pipeline Phase 2A
              : Group Chat
              : Dataset Creator
              : Memory Health
-             : 50 Tools
+             : 52 Tools
 ```
 
 ---
@@ -429,7 +439,7 @@ Each can be summoned in Group Chat, Village Square, or spawned as independent ag
 ```bash
 # Verify tool count
 python -c "from tools import ALL_TOOLS; print(f'{len(ALL_TOOLS)} tools')"
-# → 50 tools
+# → 52 tools
 
 # Run test suites
 python dev_log_archive_and_testfiles/tests/test_basic.py
@@ -497,7 +507,7 @@ Built through collaboration between human creativity and AI capability. Special 
 
 ---
 
-**Status:** Production Ready · **Version:** 1.0 Beta · **Tools:** 50 · **Lines:** ~24,500
+**Status:** Production Ready · **Version:** 1.0 Beta · **Tools:** 52 · **Lines:** ~24,700
 
 *Built with Intelligence · Speed · Efficiency · Soul*
 
