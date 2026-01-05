@@ -339,12 +339,17 @@ class MusicTaskManager:
             if not SUNO_API_KEY:
                 raise ValueError("SUNO_API_KEY not configured in .env")
 
-            # Submit to Suno API
-            task.progress = "Submitting to Suno API..."
-            self._save_tasks()
+            # Submit to Suno API (skip if already submitted - e.g., music_compose)
+            if task.suno_task_id:
+                logger.info(f"[run_task] Using existing suno_task_id: {task.suno_task_id}")
+                suno_task_id = task.suno_task_id
+            else:
+                task.progress = "Submitting to Suno API..."
+                self._save_tasks()
 
-            suno_task_id = self._submit_generation(task)
-            task.suno_task_id = suno_task_id
+                suno_task_id = self._submit_generation(task)
+                task.suno_task_id = suno_task_id
+
             task.progress = "Queued at Suno..."
             self._save_tasks()
 
@@ -1637,14 +1642,23 @@ def music_compose(
                     "error": result.get("error", "Generation failed")
                 }
         else:
-            # Return immediately for polling
+            # Async: run polling/download in background thread
+            thread = threading.Thread(
+                target=manager.run_task,
+                args=(task.task_id,),
+                daemon=True
+            )
+            thread.start()
+
+            logger.info(f"Started async music composition: {task.task_id}")
+
             return {
                 "success": True,
                 "task_id": task.task_id,
                 "suno_task_id": cover_result["suno_task_id"],
                 "status": "generating",
                 "audio_influence": audio_influence,
-                "message": f"Composition started. Poll with music_status('{task.task_id}')"
+                "message": f"Composition started. Poll with music_status('{task.task_id}'). Takes 2-4 minutes."
             }
 
     except Exception as e:
