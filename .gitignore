@@ -101,3 +101,9 @@ sandbox/vector_creator/
 # Test config files
 apex_config*.json
 *config).json
+
+# WebSocket API (local development only)
+api/
+
+# Landing page / website (separate project)
+sandbox/apex-website/
