@@ -13,7 +13,6 @@ ApexAurum - Claude Edition is a production-grade AI chat interface built on Anth
 1. **START_HERE.md** - Quick start guide
 2. **PROJECT_STATUS.md** - Current implementation status and what's pending
 3. **DEVELOPMENT_GUIDE.md** - Detailed developer onboarding guide
-4. **SYSTEM_KERNEL.md** - Agent system awareness guide (for AI agents operating in the system)
 
 ## Quick Start Commands
 
@@ -35,7 +34,7 @@ Access at: http://localhost:8501
 ### Testing
 
 ```bash
-# Verify tool count (should be 47)
+# Verify tool count (should be 52)
 python -c "from tools import ALL_TOOLS; print(f'{len(ALL_TOOLS)} tools loaded')"
 
 # Test agent functionality
