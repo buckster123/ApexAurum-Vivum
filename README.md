@@ -17,7 +17,7 @@
 *"From base metal to gold — transforming Claude into something extraordinary."*
 
 </div>
-
+[![ApexAurum Banner](https://github.com/buckster123/ApexAurum/blob/main/logo.jpg)]()
 ---
 
 ## What Is This?
