@@ -32,6 +32,14 @@ except ImportError:
     HAS_TENACITY = False
     RetryError = Exception
 
+# Try to import midiutil for MIDI creation
+try:
+    from midiutil import MIDIFile
+    HAS_MIDIUTIL = True
+except ImportError:
+    HAS_MIDIUTIL = False
+    MIDIFile = None
+
 logger = logging.getLogger(__name__)
 
 # Load environment variables
@@ -39,11 +47,15 @@ load_dotenv()
 
 # Configuration
 MUSIC_FOLDER = Path("./sandbox/music")
+MIDI_FOLDER = Path("./sandbox/midi")
 TASKS_FILE = Path("./sandbox/music_tasks.json")
 CONFIG_FILE = Path("./sandbox/music_config.json")
 LATEST_TRACK_FILE = Path("./sandbox/music_latest.json")  # For sidebar auto-load
 SUNO_API_KEY = os.getenv("SUNO_API_KEY", "")
 SUNO_API_BASE = "https://api.sunoapi.org/api/v1"
+
+# Ensure MIDI folder exists
+MIDI_FOLDER.mkdir(parents=True, exist_ok=True)
 
 
 def _get_config() -> Dict[str, Any]:
@@ -1477,6 +1489,155 @@ def music_play(task_id: str) -> Dict[str, Any]:
         return {"success": False, "error": str(e)}
 
 
+# Note name to MIDI number mapping
+NOTE_MAP = {
+    'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11
+}
+
+
+def _parse_note(note_str: str) -> int:
+    """
+    Parse note string to MIDI number.
+    Supports: 'C4', 'F#3', 'Bb5', or direct MIDI numbers like '60'
+    """
+    note_str = note_str.strip()
+
+    # If it's already a number, return it
+    if note_str.isdigit():
+        return int(note_str)
+
+    # Parse note name
+    note_str = note_str.upper()
+    base_note = note_str[0]
+    if base_note not in NOTE_MAP:
+        raise ValueError(f"Invalid note: {note_str}")
+
+    midi_num = NOTE_MAP[base_note]
+    idx = 1
+
+    # Check for sharp/flat
+    if len(note_str) > idx:
+        if note_str[idx] == '#':
+            midi_num += 1
+            idx += 1
+        elif note_str[idx] == 'B':
+            midi_num -= 1
+            idx += 1
+
+    # Get octave (default to 4 if not specified)
+    if idx < len(note_str):
+        octave = int(note_str[idx:])
+    else:
+        octave = 4
+
+    # MIDI note number: C4 = 60
+    return midi_num + (octave + 1) * 12
+
+
+def midi_create(
+    notes: List[Any],
+    tempo: int = 120,
+    note_duration: float = 0.5,
+    title: str = "composition",
+    velocity: int = 100,
+    rest_between: float = 0.0
+) -> Dict[str, Any]:
+    """
+    Create a MIDI file from a list of notes.
+
+    This tool generates MIDI files that can be used with music_compose() to create
+    AI-generated music based on your composition.
+
+    Args:
+        notes: List of notes - can be MIDI numbers (60, 64, 67) or note names ('C4', 'E4', 'G4')
+               Use 0 or 'R' for rests. Supports sharps (#) and flats (b): 'F#4', 'Bb3'
+        tempo: Beats per minute (default: 120)
+        note_duration: Duration of each note in beats (default: 0.5 = eighth note)
+        title: Filename for the MIDI file (default: 'composition')
+        velocity: Note velocity/loudness 0-127 (default: 100)
+        rest_between: Gap between notes in beats (default: 0.0)
+
+    Returns:
+        Dict with midi_file path and composition details.
+
+    Examples:
+        # Using MIDI numbers (60 = C4)
+        >>> midi_create(notes=[60, 64, 67, 72], tempo=100, title="c_major_arp")
+
+        # Using note names
+        >>> midi_create(notes=['C4', 'E4', 'G4', 'C5'], tempo=100, title="c_major_arp")
+
+        # With sharps/flats and rests
+        >>> midi_create(notes=['A3', 'C4', 'E4', 'R', 'A3', 'C#4', 'E4'], title="melody")
+
+        # Longer notes for a slower feel
+        >>> midi_create(notes=[48, 51, 55, 60], tempo=80, note_duration=1.0, title="slow_cm")
+    """
+    if not HAS_MIDIUTIL:
+        return {
+            "success": False,
+            "error": "midiutil not installed. Run: pip install midiutil"
+        }
+
+    try:
+        # Parse notes
+        parsed_notes = []
+        for note in notes:
+            if note == 0 or (isinstance(note, str) and note.upper() == 'R'):
+                parsed_notes.append(None)  # Rest
+            elif isinstance(note, int):
+                parsed_notes.append(note)
+            elif isinstance(note, str):
+                parsed_notes.append(_parse_note(note))
+            else:
+                return {"success": False, "error": f"Invalid note format: {note}"}
+
+        # Create MIDI file
+        midi = MIDIFile(1)  # Single track
+        track = 0
+        channel = 0
+        current_time = 0
+
+        midi.addTempo(track, 0, tempo)
+
+        # Add notes
+        note_count = 0
+        for note in parsed_notes:
+            if note is not None:
+                midi.addNote(track, channel, note, current_time, note_duration, velocity)
+                note_count += 1
+            current_time += note_duration + rest_between
+
+        # Generate filename
+        safe_title = re.sub(r'[^\w\-]', '_', title)
+        timestamp = int(time.time())
+        filename = f"{safe_title}_{timestamp}.mid"
+        midi_path = MIDI_FOLDER / filename
+
+        # Write file
+        with open(midi_path, "wb") as f:
+            midi.writeFile(f)
+
+        total_duration = current_time * (60 / tempo)  # Convert beats to seconds
+
+        logger.info(f"[midi_create] Created MIDI: {midi_path} ({note_count} notes, {total_duration:.1f}s)")
+
+        return {
+            "success": True,
+            "midi_file": str(midi_path),
+            "title": title,
+            "note_count": note_count,
+            "tempo": tempo,
+            "duration_seconds": round(total_duration, 2),
+            "duration_beats": round(current_time, 2),
+            "message": f"MIDI created: {filename}. Use with music_compose(midi_file='{midi_path}', ...)"
+        }
+
+    except Exception as e:
+        logger.error(f"Error creating MIDI: {e}")
+        return {"success": False, "error": str(e)}
+
+
 def music_compose(
     midi_file: str,
     style: str,
@@ -1935,6 +2096,52 @@ MUSIC_TOOL_SCHEMAS = {
                 }
             },
             "required": ["midi_file", "style", "title"]
+        }
+    },
+    # Phase 2: MIDI Creation Tool
+    "midi_create": {
+        "name": "midi_create",
+        "description": (
+            "Create a MIDI file from a list of notes. Use this to compose melodies, arpeggios, or chord "
+            "progressions that can then be used with music_compose() to generate AI music based on your composition. "
+            "Notes can be specified as MIDI numbers (60=C4) or note names ('C4', 'F#3', 'Bb5'). Use 'R' or 0 for rests. "
+            "The output MIDI file path can be passed directly to music_compose()."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "notes": {
+                    "type": "array",
+                    "items": {"oneOf": [{"type": "integer"}, {"type": "string"}]},
+                    "description": "List of notes: MIDI numbers (60, 64, 67) or note names ('C4', 'E4', 'G4'). Use 0 or 'R' for rests. Sharps: 'F#4', Flats: 'Bb3'"
+                },
+                "tempo": {
+                    "type": "integer",
+                    "description": "Beats per minute",
+                    "default": 120
+                },
+                "note_duration": {
+                    "type": "number",
+                    "description": "Duration of each note in beats (0.5 = eighth note, 1.0 = quarter note)",
+                    "default": 0.5
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Filename for the MIDI file",
+                    "default": "composition"
+                },
+                "velocity": {
+                    "type": "integer",
+                    "description": "Note loudness 0-127",
+                    "default": 100
+                },
+                "rest_between": {
+                    "type": "number",
+                    "description": "Gap between notes in beats",
+                    "default": 0.0
+                }
+            },
+            "required": ["notes"]
         }
     }
 }

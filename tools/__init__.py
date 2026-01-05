@@ -92,6 +92,7 @@ from .music import (
     music_search,
     music_play,
     # Composition tools (Phase 2)
+    midi_create,
     music_compose,
     MUSIC_TOOL_SCHEMAS,
 )
@@ -183,6 +184,7 @@ ALL_TOOLS = {
     "music_search": music_search,
     "music_play": music_play,
     # Music Composition (Phase 2)
+    "midi_create": midi_create,
     "music_compose": music_compose,
     # Dataset Tools
     "dataset_list": dataset_list,
@@ -251,6 +253,7 @@ __all__ = [
     "music_search",
     "music_play",
     # Music Composition (Phase 2)
+    "midi_create",
     "music_compose",
     # Dataset Tools
     "dataset_list",
