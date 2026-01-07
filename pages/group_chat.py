@@ -96,6 +96,106 @@ AGENT_PRESETS = {
     }
 }
 
+# Native agent IDs (always have full tool access, no exclusion UI)
+NATIVE_AGENT_IDS = {'azoth', 'elysian', 'vajra', 'kether'}
+
+# Tool categories for exclusion UI
+TOOL_CATEGORIES = {
+    'utilities': {
+        'label': '🔧 Utilities',
+        'description': 'Time, calculator, string ops (safe)',
+        'tools': ['get_current_time', 'calculator', 'reverse_string', 'count_words', 'random_number', 'session_info']
+    },
+    'filesystem': {
+        'label': '📁 File System',
+        'description': 'Read/write files and directories',
+        'tools': ['fs_read_file', 'fs_write_file', 'fs_list_files', 'fs_mkdir', 'fs_delete', 'fs_exists', 'fs_get_info']
+    },
+    'code_execution': {
+        'label': '💻 Code Execution',
+        'description': 'Run Python code (security sensitive)',
+        'tools': ['execute_python']
+    },
+    'memory': {
+        'label': '🧠 Memory (KV)',
+        'description': 'Key-value memory storage',
+        'tools': ['memory_store', 'memory_retrieve', 'memory_list', 'memory_delete', 'memory_search']
+    },
+    'agents': {
+        'label': '🤖 Agents',
+        'description': 'Spawn and manage sub-agents',
+        'tools': ['agent_spawn', 'agent_status', 'agent_result', 'agent_list', 'socratic_council']
+    },
+    'vector_knowledge': {
+        'label': '🔍 Vector/Knowledge',
+        'description': 'Semantic search and knowledge base',
+        'tools': ['vector_add', 'vector_search', 'vector_delete', 'vector_list_collections', 'vector_get_stats',
+                  'vector_add_knowledge', 'vector_search_knowledge', 'vector_search_village']
+    },
+    'memory_health': {
+        'label': '🏥 Memory Health',
+        'description': 'Memory maintenance and optimization',
+        'tools': ['memory_health_stale', 'memory_health_low_access', 'memory_health_duplicates',
+                  'memory_consolidate', 'memory_migration_run']
+    },
+    'village': {
+        'label': '🏘️ Village Protocol',
+        'description': 'Cross-agent communication',
+        'tools': ['village_convergence_detect', 'forward_crumbs_get', 'forward_crumb_leave']
+    },
+    'music': {
+        'label': '🎵 Music',
+        'description': 'Music generation, curation, composition',
+        'tools': ['music_generate', 'music_status', 'music_result', 'music_list',
+                  'music_favorite', 'music_library', 'music_search', 'music_play',
+                  'midi_create', 'music_compose']
+    },
+    'datasets': {
+        'label': '📊 Datasets',
+        'description': 'Query vector datasets',
+        'tools': ['dataset_list', 'dataset_query']
+    }
+}
+
+# Quick exclusion presets for common security profiles
+EXCLUSION_PRESETS = {
+    'full_access': {
+        'label': '🔓 Full Access',
+        'description': 'All 52 tools enabled',
+        'excluded': []
+    },
+    'read_only': {
+        'label': '👁️ Read-Only',
+        'description': 'No write/delete/create operations',
+        'excluded': ['fs_write_file', 'fs_mkdir', 'fs_delete', 'execute_python',
+                     'memory_store', 'memory_delete', 'vector_add', 'vector_delete',
+                     'vector_add_knowledge', 'memory_consolidate', 'forward_crumb_leave',
+                     'music_generate', 'midi_create', 'music_compose', 'agent_spawn']
+    },
+    'no_agents': {
+        'label': '🚫 No Agent Spawn',
+        'description': 'Cannot create sub-agents',
+        'excluded': ['agent_spawn', 'socratic_council']
+    },
+    'no_code': {
+        'label': '🔒 No Code Execution',
+        'description': 'No Python execution',
+        'excluded': ['execute_python']
+    },
+    'no_file_write': {
+        'label': '📖 No File Write',
+        'description': 'Read files but cannot modify',
+        'excluded': ['fs_write_file', 'fs_mkdir', 'fs_delete']
+    },
+    'no_music': {
+        'label': '🔇 No Music',
+        'description': 'No music generation tools',
+        'excluded': ['music_generate', 'music_status', 'music_result', 'music_list',
+                     'music_favorite', 'music_library', 'music_search', 'music_play',
+                     'midi_create', 'music_compose']
+    }
+}
+
 
 # ============================================================================
 # Data Classes
@@ -112,7 +212,8 @@ class GroupChatAgent:
     temperature: float
     system_prompt: str
     tools_enabled: bool = True
-    allowed_tools: List[str] = field(default_factory=list)  # Empty = all tools
+    allowed_tools: List[str] = field(default_factory=list)  # Empty = all tools (legacy, unused)
+    excluded_tools: List[str] = field(default_factory=list)  # Tools to exclude (new)
 
     # Runtime state (mutable)
     status: str = "idle"  # idle, thinking, executing, complete, error
@@ -130,9 +231,20 @@ class GroupChatAgent:
             "model": self.model,
             "temperature": self.temperature,
             "tools_enabled": self.tools_enabled,
+            "excluded_tools": self.excluded_tools,
             "status": self.status,
             "total_cost": self.total_cost
         }
+
+    def is_native(self) -> bool:
+        """Check if this is a native agent (full tool access)"""
+        return self.id.lower() in NATIVE_AGENT_IDS
+
+    def get_effective_tool_count(self) -> int:
+        """Get number of tools available after exclusions"""
+        if not self.tools_enabled:
+            return 0
+        return len(ALL_TOOL_SCHEMAS) - len(self.excluded_tools)
 
 
 @dataclass
@@ -297,13 +409,12 @@ def run_agent_turn_sync(
         context += "Please respond to the discussion above."
         messages.append({"role": "user", "content": context})
 
-    # Get tool schemas if enabled
+    # Get tool schemas if enabled (with exclusion support)
     tools = None
     if agent.tools_enabled:
-        if agent.allowed_tools:
-            tools = [ALL_TOOL_SCHEMAS[name] for name in agent.allowed_tools if name in ALL_TOOL_SCHEMAS]
-        else:
-            tools = list(ALL_TOOL_SCHEMAS.values())
+        # Filter out excluded tools
+        excluded_set = set(agent.excluded_tools) if agent.excluded_tools else set()
+        tools = [schema for name, schema in ALL_TOOL_SCHEMAS.items() if name not in excluded_set]
 
     # Track results
     full_response = ""
@@ -592,8 +703,69 @@ with st.sidebar:
             custom_temp = st.slider("Temperature", 0.0, 1.0, 0.7, 0.1, key="custom_temp")
             custom_prompt = st.text_area("System Prompt", value=FALLBACK_PROMPTS['custom'], height=100)
 
-            if st.button("Create Agent"):
-                agent_id = f"custom_{len(st.session_state.gc_agents)}"
+            # Tool Exclusion Section
+            st.markdown("---")
+            st.markdown("**🔧 Tool Access**")
+
+            # Exclusion preset selector
+            preset_options = {k: v['label'] for k, v in EXCLUSION_PRESETS.items()}
+            selected_preset = st.selectbox(
+                "Quick Preset",
+                options=list(preset_options.keys()),
+                format_func=lambda x: f"{preset_options[x]} - {EXCLUSION_PRESETS[x]['description']}",
+                key="custom_exclusion_preset"
+            )
+
+            # Initialize excluded tools from preset
+            if 'custom_excluded_tools' not in st.session_state:
+                st.session_state.custom_excluded_tools = set()
+
+            # Apply preset button
+            if st.button("Apply Preset", key="apply_preset"):
+                st.session_state.custom_excluded_tools = set(EXCLUSION_PRESETS[selected_preset]['excluded'])
+                st.rerun()
+
+            # Category-based exclusion
+            with st.expander("📂 Exclude by Category", expanded=False):
+                for cat_id, cat_info in TOOL_CATEGORIES.items():
+                    cat_tools = set(cat_info['tools'])
+                    all_excluded = cat_tools.issubset(st.session_state.custom_excluded_tools)
+
+                    if st.checkbox(
+                        f"{cat_info['label']} ({len(cat_tools)})",
+                        value=all_excluded,
+                        key=f"cat_{cat_id}",
+                        help=cat_info['description']
+                    ):
+                        st.session_state.custom_excluded_tools.update(cat_tools)
+                    else:
+                        st.session_state.custom_excluded_tools -= cat_tools
+
+            # Individual tool exclusion
+            with st.expander("🔍 Exclude Individual Tools", expanded=False):
+                for cat_id, cat_info in TOOL_CATEGORIES.items():
+                    st.caption(cat_info['label'])
+                    for tool_name in cat_info['tools']:
+                        is_excluded = tool_name in st.session_state.custom_excluded_tools
+                        if st.checkbox(
+                            tool_name,
+                            value=is_excluded,
+                            key=f"tool_{tool_name}"
+                        ):
+                            st.session_state.custom_excluded_tools.add(tool_name)
+                        else:
+                            st.session_state.custom_excluded_tools.discard(tool_name)
+
+            # Show exclusion summary
+            excluded_count = len(st.session_state.custom_excluded_tools)
+            total_tools = len(ALL_TOOL_SCHEMAS)
+            st.caption(f"Tools: {total_tools - excluded_count}/{total_tools} enabled")
+            if excluded_count > 0:
+                st.caption(f"Excluded: {', '.join(sorted(st.session_state.custom_excluded_tools)[:5])}{'...' if excluded_count > 5 else ''}")
+
+            st.markdown("---")
+            if st.button("Create Agent", type="primary"):
+                agent_id = f"custom_{len(st.session_state.gc_agents)}_{int(time.time())}"
                 new_agent = GroupChatAgent(
                     id=agent_id,
                     name=custom_name,
@@ -602,25 +774,105 @@ with st.sidebar:
                     model=st.session_state.gc_model,
                     temperature=custom_temp,
                     system_prompt=custom_prompt,
-                    tools_enabled=st.session_state.gc_tools_enabled
+                    tools_enabled=st.session_state.gc_tools_enabled,
+                    excluded_tools=list(st.session_state.custom_excluded_tools)
                 )
                 st.session_state.gc_agents.append(new_agent)
                 st.session_state.gc_show_add_agent = False
+                st.session_state.custom_excluded_tools = set()  # Reset for next agent
                 st.rerun()
 
     # Current agents list
     st.caption(f"Active Agents: {len(st.session_state.gc_agents)}")
+
+    # Initialize edit state
+    if 'gc_editing_agent_idx' not in st.session_state:
+        st.session_state.gc_editing_agent_idx = None
+
     for i, agent in enumerate(st.session_state.gc_agents):
-        col1, col2 = st.columns([3, 1])
+        is_native = agent.is_native()
+        excluded_count = len(agent.excluded_tools)
+        tool_info = f"({agent.get_effective_tool_count()} tools)" if not is_native and excluded_count > 0 else ""
+
+        col1, col2, col3 = st.columns([2.5, 0.7, 0.8])
         with col1:
             st.markdown(
-                f"<span style='color: {agent.color}'>{agent.display_name}</span>",
+                f"<span style='color: {agent.color}'>{agent.display_name}</span> {tool_info}",
                 unsafe_allow_html=True
             )
         with col2:
+            # Edit button (only for non-native agents)
+            if not is_native:
+                if st.button("✏️", key=f"edit_{i}", help="Edit tool access"):
+                    if st.session_state.gc_editing_agent_idx == i:
+                        st.session_state.gc_editing_agent_idx = None  # Toggle off
+                    else:
+                        st.session_state.gc_editing_agent_idx = i
+                        # Initialize edit state with current exclusions
+                        st.session_state.gc_edit_excluded_tools = set(agent.excluded_tools)
+                    st.rerun()
+        with col3:
             if st.button("✖️", key=f"remove_{i}", help="Remove agent"):
                 st.session_state.gc_agents.pop(i)
+                if st.session_state.gc_editing_agent_idx == i:
+                    st.session_state.gc_editing_agent_idx = None
                 st.rerun()
+
+        # Show edit panel if this agent is being edited
+        if st.session_state.gc_editing_agent_idx == i and not is_native:
+            with st.container():
+                st.markdown(f"**Editing {agent.display_name} Tool Access**")
+
+                # Initialize edit state if needed
+                if 'gc_edit_excluded_tools' not in st.session_state:
+                    st.session_state.gc_edit_excluded_tools = set(agent.excluded_tools)
+
+                # Quick preset
+                edit_preset = st.selectbox(
+                    "Apply Preset",
+                    options=list(EXCLUSION_PRESETS.keys()),
+                    format_func=lambda x: f"{EXCLUSION_PRESETS[x]['label']}",
+                    key=f"edit_preset_{i}"
+                )
+                if st.button("Apply", key=f"apply_edit_preset_{i}"):
+                    st.session_state.gc_edit_excluded_tools = set(EXCLUSION_PRESETS[edit_preset]['excluded'])
+                    st.rerun()
+
+                # Category toggles
+                st.caption("Categories:")
+                cat_cols = st.columns(2)
+                for j, (cat_id, cat_info) in enumerate(TOOL_CATEGORIES.items()):
+                    cat_tools = set(cat_info['tools'])
+                    all_excluded = cat_tools.issubset(st.session_state.gc_edit_excluded_tools)
+                    with cat_cols[j % 2]:
+                        if st.checkbox(
+                            f"❌ {cat_info['label'].split()[0]}",
+                            value=all_excluded,
+                            key=f"edit_cat_{i}_{cat_id}",
+                            help=f"Exclude {cat_info['label']}"
+                        ):
+                            st.session_state.gc_edit_excluded_tools.update(cat_tools)
+                        else:
+                            st.session_state.gc_edit_excluded_tools -= cat_tools
+
+                # Summary
+                edit_excluded_count = len(st.session_state.gc_edit_excluded_tools)
+                st.caption(f"Enabled: {len(ALL_TOOL_SCHEMAS) - edit_excluded_count}/{len(ALL_TOOL_SCHEMAS)}")
+
+                # Save/Cancel buttons
+                btn_cols = st.columns(2)
+                with btn_cols[0]:
+                    if st.button("💾 Save", key=f"save_edit_{i}", type="primary"):
+                        agent.excluded_tools = list(st.session_state.gc_edit_excluded_tools)
+                        st.session_state.gc_editing_agent_idx = None
+                        st.success(f"Updated {agent.display_name}")
+                        st.rerun()
+                with btn_cols[1]:
+                    if st.button("Cancel", key=f"cancel_edit_{i}"):
+                        st.session_state.gc_editing_agent_idx = None
+                        st.rerun()
+
+                st.markdown("---")
 
     st.divider()
 
