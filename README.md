@@ -9,7 +9,7 @@
 [![Status](https://img.shields.io/badge/status-production%20ready-gold?style=for-the-badge)]()
 [![Tools](https://img.shields.io/badge/tools-59-blueviolet?style=for-the-badge)]()
 [![Code](https://img.shields.io/badge/lines-26.4k+-blue?style=for-the-badge)]()
-[![Python](https://img.shields.io/badge/python-3.9+-green?style=for-the-badge)]()
+[![Python](https://img.shields.io/badge/python-3.10+-green?style=for-the-badge)]()
 [![License](https://img.shields.io/badge/license-MIT-brightgreen?style=for-the-badge)]()
 
 ---
@@ -168,20 +168,75 @@ flowchart LR
 
 ### Prerequisites
 
-- Python 3.9+
+- **Python 3.10+** or **Docker**
 - Anthropic API key ([console.anthropic.com](https://console.anthropic.com/))
-- Optional: Voyage AI key (embeddings), Suno API key (music)
+- Optional: Voyage AI key (embeddings), Suno API key (music), Docker (sandbox)
 
 ### Installation
+
+Choose your preferred method:
+
+<details>
+<summary><b>Option A: One-Line Install Script (Recommended)</b></summary>
+
+```bash
+# Clone and run install script
+git clone https://github.com/buckster123/ApexAurum.git
+cd ApexAurum
+./install.sh
+
+# Edit .env with your API key
+nano .env  # Add: ANTHROPIC_API_KEY=sk-ant-your-key
+
+# Launch
+source venv/bin/activate
+streamlit run main.py
+```
+
+**Optional:** Add Docker code sandbox:
+```bash
+./install.sh --with-sandbox
+```
+
+</details>
+
+<details>
+<summary><b>Option B: Docker Compose (Full Containerization)</b></summary>
+
+```bash
+# Clone repository
+git clone https://github.com/buckster123/ApexAurum.git
+cd ApexAurum
+
+# Configure environment
+cp .env.example .env
+nano .env  # Add: ANTHROPIC_API_KEY=sk-ant-your-key
+
+# Build and run (first time takes ~5-10 minutes)
+docker-compose up --build
+
+# Subsequent starts
+docker-compose up -d
+```
+
+**Notes:**
+- Docker socket mounted for sandbox code execution
+- Data persists in `./sandbox/` directory
+- Stop with: `docker-compose down`
+
+</details>
+
+<details>
+<summary><b>Option C: Manual Installation</b></summary>
 
 ```bash
 # Clone the repository
 git clone https://github.com/buckster123/ApexAurum.git
 cd ApexAurum
 
-# Create virtual environment (recommended)
+# Create virtual environment
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate  # Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
@@ -193,6 +248,8 @@ cp .env.example .env
 # Launch
 streamlit run main.py
 ```
+
+</details>
 
 Open **http://localhost:8501** and start chatting.
 

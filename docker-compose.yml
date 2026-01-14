@@ -1,0 +1,97 @@
+# ApexAurum Docker Compose Configuration
+#
+# Quick Start:
+#   1. Copy .env.example to .env and add your ANTHROPIC_API_KEY
+#   2. Run: docker-compose up --build
+#   3. Open: http://localhost:8501
+#
+# Commands:
+#   Start:    docker-compose up -d
+#   Stop:     docker-compose down
+#   Logs:     docker-compose logs -f
+#   Rebuild:  docker-compose up --build
+#   Clean:    docker-compose down -v --rmi local
+
+version: '3.8'
+
+services:
+  # ==========================================================================
+  # Main Application
+  # ==========================================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    container_name: apexaurum
+    image: apexaurum:latest
+    restart: unless-stopped
+
+    ports:
+      - "8501:8501"
+
+    environment:
+      # Required - set in .env file
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      # Optional - set in .env if needed
+      - VOYAGE_API_KEY=${VOYAGE_API_KEY:-}
+      - SUNO_API_KEY=${SUNO_API_KEY:-}
+      - DEFAULT_MODEL=${DEFAULT_MODEL:-claude-sonnet-4-5-20251022}
+      - MAX_TOKENS=${MAX_TOKENS:-64000}
+      # Workspace for sandbox
+      - APEX_WORKSPACE=/workspace
+
+    volumes:
+      # Persistent data storage
+      - ./sandbox:/app/sandbox
+      # Shared workspace for sandbox execution
+      - apex_workspace:/workspace
+      # Docker socket for sandbox container access
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Environment file (alternative to environment vars)
+      # - ./.env:/app/.env:ro
+
+    depends_on:
+      sandbox:
+        condition: service_started
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    # Resource limits (adjust for your system)
+    # Commented out for flexibility - uncomment if needed
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 4G
+    #     reservations:
+    #       memory: 2G
+
+  # ==========================================================================
+  # Code Execution Sandbox
+  # Built but not run continuously - used on-demand by main app via Docker API
+  # ==========================================================================
+  sandbox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: apex-sandbox:latest
+    container_name: apex-sandbox-builder
+
+    # This container just builds the image, doesn't stay running
+    # The main app spawns sandbox containers as needed
+    command: ["echo", "Sandbox image built successfully"]
+
+    volumes:
+      - apex_workspace:/workspace
+
+# ==========================================================================
+# Volumes
+# ==========================================================================
+volumes:
+  # Shared workspace between app and sandbox containers
+  apex_workspace:
+    driver: local

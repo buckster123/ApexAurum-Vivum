@@ -1,0 +1,50 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+.eggs/
+*.egg-info/
+*.egg
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Development
+dev_log_archive_and_testfiles/
+future_additions/
+*.log
+
+# Runtime data (mounted as volumes instead)
+sandbox/
+*.json
+
+# Environment (use docker-compose env_file instead)
+.env
+
+# Documentation (not needed in container)
+*.md
+!README.md
+
+# Build artifacts
+*.tar
+*.gz
+dist/
+build/
+
+# Miscellaneous
+.DS_Store
+Thumbs.db
+*.bak
+*.tmp
