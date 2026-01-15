@@ -156,6 +156,13 @@ TOOL_CATEGORIES = {
         'label': '📊 Datasets',
         'description': 'Query vector datasets',
         'tools': ['dataset_list', 'dataset_query']
+    },
+    'eeg': {
+        'label': '🧠 EEG/Neural',
+        'description': 'Neural Resonance brain-computer interface',
+        'tools': ['eeg_connect', 'eeg_disconnect', 'eeg_stream_start', 'eeg_stream_stop',
+                  'eeg_experience_get', 'eeg_calibrate_baseline', 'eeg_realtime_emotion',
+                  'eeg_list_sessions']
     }
 }
 
@@ -163,7 +170,7 @@ TOOL_CATEGORIES = {
 EXCLUSION_PRESETS = {
     'full_access': {
         'label': '🔓 Full Access',
-        'description': 'All 59 tools enabled',
+        'description': 'All 67 tools enabled',
         'excluded': []
     },
     'read_only': {

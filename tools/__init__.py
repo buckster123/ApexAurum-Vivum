@@ -4,11 +4,13 @@ Tools Module
 Collection of tools for Claude to use:
 - Utilities: Time, calculator, string operations
 - Filesystem: File/directory operations (sandboxed)
-- Code Execution: Safe Python code execution
+- Code Execution: Safe Python code execution (REPL + Docker sandbox)
 - Memory: Key-value memory storage
 - Agents: Multi-agent spawning and Socratic council
 - Vector Search: Semantic search and knowledge base
 - Music: AI music generation via Suno API
+- Datasets: Vector dataset creation and querying
+- EEG: Neural Resonance brain-computer interface (OpenBCI)
 
 Each tool module provides:
 - Tool implementation functions
@@ -117,6 +119,38 @@ DATASET_TOOL_SCHEMAS = {
     "dataset_query": DATASET_QUERY_SCHEMA,
 }
 
+# EEG Tools (Neural Resonance)
+from .eeg import (
+    eeg_connect,
+    eeg_disconnect,
+    eeg_stream_start,
+    eeg_stream_stop,
+    eeg_experience_get,
+    eeg_calibrate_baseline,
+    eeg_realtime_emotion,
+    eeg_list_sessions,
+    EEG_CONNECT_SCHEMA,
+    EEG_DISCONNECT_SCHEMA,
+    EEG_STREAM_START_SCHEMA,
+    EEG_STREAM_STOP_SCHEMA,
+    EEG_EXPERIENCE_GET_SCHEMA,
+    EEG_CALIBRATE_SCHEMA,
+    EEG_REALTIME_SCHEMA,
+    EEG_LIST_SESSIONS_SCHEMA,
+)
+
+# EEG tool schemas
+EEG_TOOL_SCHEMAS = {
+    "eeg_connect": EEG_CONNECT_SCHEMA,
+    "eeg_disconnect": EEG_DISCONNECT_SCHEMA,
+    "eeg_stream_start": EEG_STREAM_START_SCHEMA,
+    "eeg_stream_stop": EEG_STREAM_STOP_SCHEMA,
+    "eeg_experience_get": EEG_EXPERIENCE_GET_SCHEMA,
+    "eeg_calibrate_baseline": EEG_CALIBRATE_SCHEMA,
+    "eeg_realtime_emotion": EEG_REALTIME_SCHEMA,
+    "eeg_list_sessions": EEG_LIST_SESSIONS_SCHEMA,
+}
+
 # Combine all schemas
 ALL_TOOL_SCHEMAS = {
     **UTILITY_TOOL_SCHEMAS,
@@ -127,6 +161,7 @@ ALL_TOOL_SCHEMAS = {
     **VECTOR_TOOL_SCHEMAS,
     **MUSIC_TOOL_SCHEMAS,
     **DATASET_TOOL_SCHEMAS,
+    **EEG_TOOL_SCHEMAS,
 }
 
 # Map tool names to functions
@@ -203,6 +238,15 @@ ALL_TOOLS = {
     # Dataset Tools
     "dataset_list": dataset_list,
     "dataset_query": dataset_query,
+    # EEG Tools (Neural Resonance)
+    "eeg_connect": eeg_connect,
+    "eeg_disconnect": eeg_disconnect,
+    "eeg_stream_start": eeg_stream_start,
+    "eeg_stream_stop": eeg_stream_stop,
+    "eeg_experience_get": eeg_experience_get,
+    "eeg_calibrate_baseline": eeg_calibrate_baseline,
+    "eeg_realtime_emotion": eeg_realtime_emotion,
+    "eeg_list_sessions": eeg_list_sessions,
 }
 
 __all__ = [
@@ -279,6 +323,15 @@ __all__ = [
     # Dataset Tools
     "dataset_list",
     "dataset_query",
+    # EEG Tools (Neural Resonance)
+    "eeg_connect",
+    "eeg_disconnect",
+    "eeg_stream_start",
+    "eeg_stream_stop",
+    "eeg_experience_get",
+    "eeg_calibrate_baseline",
+    "eeg_realtime_emotion",
+    "eeg_list_sessions",
     # Schemas
     "UTILITY_TOOL_SCHEMAS",
     "FILESYSTEM_TOOL_SCHEMAS",
@@ -288,6 +341,7 @@ __all__ = [
     "VECTOR_TOOL_SCHEMAS",
     "MUSIC_TOOL_SCHEMAS",
     "DATASET_TOOL_SCHEMAS",
+    "EEG_TOOL_SCHEMAS",
     "ALL_TOOL_SCHEMAS",
     "ALL_TOOLS",
 ]
